@@ -18,6 +18,8 @@ import re
 import time
 import json
 import uuid
+import base64
+import mimetypes
 import smtplib
 import imaplib
 import tempfile
@@ -70,7 +72,7 @@ SENDER_NAMES = {
     "mbastian@equation-sie.com":     "Michel Bastian",
 }
 
-MAX_TOTAL_ATTACH_MB = float(os.environ.get("MAX_TOTAL_ATTACH_MB", "10"))
+MAX_TOTAL_ATTACH_MB = float(os.environ.get("MAX_TOTAL_ATTACH_MB", "25"))
 DEFAULT_DELAY_S     = int(os.environ.get("DEFAULT_DELAY_S", "45"))
 OVH_HOURLY_LIMIT    = 200  # mails / heure / compte (doc OVH)
 
@@ -84,7 +86,8 @@ ALLOWED_INLINE = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
 app = Flask(__name__, template_folder=".")
 app.secret_key = SECRET_KEY
-app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
+# Marge au-dessus du plafond des PJ (en-têtes, encodage, plusieurs fichiers)
+app.config["MAX_CONTENT_LENGTH"] = int((MAX_TOTAL_ATTACH_MB + 20) * 1024 * 1024)
 
 # État en mémoire (d'où le worker unique)
 SESSIONS = {}          # token -> {"email","password","name"}
@@ -229,6 +232,37 @@ def html_to_text(html: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Photos dans le corps : insertion auto + rendu dans l'aperçu
+# --------------------------------------------------------------------------- #
+PHOTO_TAG = ('<img src="cid:{cid}" alt="{name}" '
+             'style="max-width:100%;height:auto;display:block;margin:14px 0;border-radius:4px;">')
+
+
+def embed_photos(body: str, inline_images) -> str:
+    """Ajoute au corps les photos qui n'ont pas été placées à la main via cid:."""
+    extra = "".join(
+        PHOTO_TAG.format(cid=img["cid"], name=img["filename"])
+        for img in inline_images
+        if f"cid:{img['cid']}" not in (body or "")
+    )
+    return (body or "") + extra
+
+
+def body_for_preview(body: str, inline_images) -> str:
+    """Comme l'email réel, mais les cid: deviennent des images visibles (base64)."""
+    body = embed_photos(body, inline_images)
+    for img in inline_images:
+        try:
+            with open(img["path"], "rb") as fh:
+                b64 = base64.b64encode(fh.read()).decode()
+            mime = mimetypes.guess_type(img["filename"])[0] or "image/png"
+            body = body.replace(f"cid:{img['cid']}", f"data:{mime};base64,{b64}")
+        except OSError:
+            pass
+    return body
+
+
+# --------------------------------------------------------------------------- #
 # Construction du message MIME
 # --------------------------------------------------------------------------- #
 def build_message(from_email, from_name, to_email, subject,
@@ -332,7 +366,7 @@ def run_job(job_id):
             job["status"] = "annulé"; break
         to_email = row["email"]
         subject = personalize(job["subject"], row)
-        body = personalize(job["body"], row)
+        body = embed_photos(personalize(job["body"], row), job["inline_images"])
         result = {"email": to_email, "subject": subject, "expediteur": s_email}
         try:
             msg = build_message(s_email, s_name, to_email, subject, body,
@@ -437,7 +471,8 @@ def preview():
                       + ". En liste d'adresses simple, seule {email} est connue.")
 
     previews = [{"email": r["email"], "subject": personalize(subject, r),
-                 "body": personalize(body, r)} for r in rows]
+                 "body": body_for_preview(personalize(body, r), inline_images)}
+                for r in rows]
 
     job_id = uuid.uuid4().hex
     with LOCK:

@@ -14,12 +14,14 @@
 
   <div class="card">
     <h2>👥 Destinataires</h2>
-    <label>Liste collée <span class="hint">Tableau Excel / CSV. 1re ligne = en-têtes. Colonne <code>email</code> obligatoire.</span></label>
+    <label>Liste collée <span class="hint">Une adresse par ligne, ou séparées par des virgules.</span></label>
     <textarea name="recipients" rows="7" required
-      placeholder="email,prenom,societe,fonction
-j.durand@acme.fr,Jean,ACME Immobilier,Directeur
-m.leroy@beta.com,Marie,Beta Conseil,Gérante"></textarea>
-    <p class="small">Chaque colonne devient une variable : <code>{prenom}</code>, <code>{societe}</code>, <code>{fonction}</code>…</p>
+      placeholder="lbastian@equation-sie.com
+mmoriceau@equation-sie.com
+
+— ou —
+a@societe.com, b@autre.fr, c@client.com"></textarea>
+    <p class="small">Pour <strong>personnaliser</strong> (<code>{prenom}</code>, <code>{societe}</code>…), colle plutôt un tableau Excel dont la 1re ligne donne les en-têtes : <code>email,prenom,societe</code>.</p>
   </div>
 
   <div class="card">
@@ -27,28 +29,27 @@ m.leroy@beta.com,Marie,Beta Conseil,Gérante"></textarea>
     <label>Objet</label>
     <input type="text" name="subject" required
            placeholder="{prenom}, un bureau qui colle à {societe} ?">
-    <label>Corps du mail (HTML) <span class="hint">Liens <code>&lt;a href&gt;</code> · image inline via <code>&lt;img src="cid:nomfichier.jpg"&gt;</code></span></label>
+    <label>Corps du mail (HTML) <span class="hint">Liens <code>&lt;a href&gt;</code>. Tes photos s'ajoutent automatiquement sous le texte (ou place-les où tu veux avec <code>cid:nomfichier</code>).</span></label>
     <textarea name="body" rows="12" required
-      placeholder="&lt;p&gt;Bonjour {prenom},&lt;/p&gt;
-&lt;p&gt;Je me permets de vous écrire au sujet de {societe}…&lt;/p&gt;
-&lt;p&gt;&lt;a href=&quot;https://equation-sie.com&quot;&gt;Découvrir nos offres&lt;/a&gt;&lt;/p&gt;
-&lt;img src=&quot;cid:signature.png&quot; width=&quot;320&quot;&gt;"></textarea>
+      placeholder="&lt;p&gt;Bonjour,&lt;/p&gt;
+&lt;p&gt;Je me permets de vous écrire au sujet de votre recherche de bureaux…&lt;/p&gt;
+&lt;p&gt;&lt;a href=&quot;https://equation-sie.com&quot;&gt;Découvrir nos offres&lt;/a&gt;&lt;/p&gt;"></textarea>
   </div>
 
   <div class="card">
-    <h2>📎 Pièces jointes &amp; images</h2>
+    <h2>📎 Pièces jointes &amp; photos</h2>
     <div class="row">
       <div>
-        <label>Pièces jointes <span class="hint">PDF, doc, image…</span></label>
+        <label>Pièces jointes <span class="hint">PDF, doc… (fichiers à télécharger)</span></label>
         <input type="file" name="attachments" multiple
                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp">
       </div>
       <div>
-        <label>Images inline <span class="hint">référencées par <code>cid:nomfichier</code></span></label>
+        <label>Photos dans le message <span class="hint">s'affichent dans le corps, sous ton texte</span></label>
         <input type="file" name="inline" multiple accept=".png,.jpg,.jpeg,.gif,.webp">
       </div>
     </div>
-    <p class="small">Plafond {{ max_mb }} Mo / mail. Évite le tout-image (spam-score) : garde du vrai texte.</p>
+    <p class="small">Plafond {{ max_mb }} Mo / mail. Au-delà de ~25 Mo, beaucoup de boîtes rejettent le mail — pour du lourd, préfère un lien. Évite aussi le tout-image (spam) : garde du vrai texte.</p>
   </div>
 
   <div class="card">
