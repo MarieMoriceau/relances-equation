@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Aperçu · Relances Equation{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Aperçu <span class="accent">avant envoi</span></h1>
+  <p style="margin-top:10px">
+    <span class="badge">👥 {{ count }} destinataires</span>
+    <span class="badge">⏱️ délai {{ delay }} s</span>
+    <span class="badge">≈ {{ est_min }} min</span>
+    <span class="badge r">📎 {{ total_mb }} Mo</span>
+  </p>
+
+  {% if attachments or inline_images %}
+  <p class="small">
+    {% if attachments %}<strong>Pièces jointes :</strong>
+      {% for a in attachments %}{{ a.filename }} ({{ a.size_kb }} Ko){% if not loop.last %} · {% endif %}{% endfor %}<br>{% endif %}
+    {% if inline_images %}<strong>Images inline :</strong>
+      {% for i in inline_images %}<code>cid:{{ i.cid }}</code> ({{ i.size_kb }} Ko){% if not loop.last %} · {% endif %}{% endfor %}{% endif %}
+  </p>
+  {% endif %}
+
+  {% if warnings %}{% for w in warnings %}<div class="flash warn">⚠ {{ w }}</div>{% endfor %}{% endif %}
+
+  <form method="post" action="{{ url_for('send') }}" style="margin-top:14px">
+    <input type="hidden" name="job_id" value="{{ job_id }}">
+    <a class="btn ghost" href="{{ url_for('index') }}">← Modifier</a>
+    <button class="btn" type="submit"
+            onclick="return confirm('Lancer l\'envoi à {{ count }} destinataires ?')">
+      🚀 Envoyer la série
+    </button>
+  </form>
+  <p class="small" style="margin-top:10px">Les images inline ne s'affichent pas ici (elles sont rattachées au mail réel via <code>cid:</code>). Tu vois le corps personnalisé.</p>
+</div>
+
+{% for p in previews %}
+<div class="preview-mail">
+  <div class="meta"><b>À :</b> {{ p.email }} &nbsp;·&nbsp; <b>Objet :</b> {{ p.subject }}</div>
+  <div class="body">{{ p.body | safe }}</div>
+</div>
+{% endfor %}
+{% endblock %}

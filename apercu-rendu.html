@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#4A1E5C">
+<title>Composer · Relances Equation</title>
+<style>
+  :root{
+    --aubergine:#4A1E5C; --aubergine-2:#3C214B;
+    --rouge:#B90009; --rouge-d:#8f0007;
+    --bleu:#77A1B1; --bleu-l:#e8f0f3;
+    --bg:#f6f4f8; --surface:#ffffff; --bord:#ece7f0;
+    --txt:#2b2230; --muted:#857c8e;
+    --r-card:16px; --r-el:10px;
+    --shadow:0 2px 4px rgba(60,33,75,.04), 0 8px 24px rgba(60,33,75,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--txt);
+       line-height:1.55;-webkit-font-smoothing:antialiased}
+
+  /* ---- Top bar ---- */
+  header{position:sticky;top:0;z-index:20;
+    background:linear-gradient(135deg,var(--aubergine) 0%,var(--aubergine-2) 100%);
+    color:#fff;padding:16px 22px;display:flex;align-items:center;
+    justify-content:space-between;box-shadow:0 2px 12px rgba(60,33,75,.18)}
+  header .brand{display:flex;align-items:center;gap:10px;font-weight:bold;
+    letter-spacing:.4px;font-size:16px}
+  header .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--rouge);
+    box-shadow:0 0 0 4px rgba(185,0,9,.25)}
+  header .brand small{font-weight:normal;opacity:.7;font-size:12px;letter-spacing:.2px}
+  header nav a{color:#fff;text-decoration:none;margin-left:16px;font-size:14px;
+    opacity:.82;border-bottom:2px solid transparent;padding-bottom:2px;transition:.15s}
+  header nav a:hover{opacity:1;border-bottom-color:var(--bleu)}
+
+  .wrap{max-width:880px;margin:26px auto;padding:0 18px}
+
+  /* ---- Cards ---- */
+  .card{background:var(--surface);border:1px solid var(--bord);border-radius:var(--r-card);
+    padding:24px;margin-bottom:18px;box-shadow:var(--shadow)}
+  h1{font-size:21px;margin:0 0 4px;letter-spacing:-.2px}
+  h1 .accent{color:var(--rouge)}
+  h2{font-size:15px;margin:0 0 14px;display:flex;align-items:center;gap:9px;
+     text-transform:uppercase;letter-spacing:.6px;color:var(--aubergine);font-weight:bold}
+  h2::before{content:"";width:4px;height:16px;border-radius:3px;background:var(--bleu)}
+  h2.r::before{background:var(--rouge)}
+
+  label{display:block;font-weight:bold;font-size:13px;margin:16px 0 6px}
+  .hint{display:block;font-weight:normal;color:var(--muted);font-size:12px;margin-top:2px}
+  input[type=text],input[type=password],input[type=number],textarea,select{
+    width:100%;padding:11px 13px;border:1.5px solid var(--bord);border-radius:var(--r-el);
+    font-family:inherit;font-size:14px;background:#fff;transition:.15s;color:var(--txt)}
+  input:focus,textarea:focus{outline:none;border-color:var(--bleu);
+    box-shadow:0 0 0 3px rgba(119,161,177,.25)}
+  textarea{resize:vertical;line-height:1.5}
+  input[type=file]{font-size:13px;width:100%;padding:9px;border:1.5px dashed var(--bord);
+    border-radius:var(--r-el);background:var(--bleu-l)}
+
+  /* ---- Buttons ---- */
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--rouge);color:#fff;
+    border:none;padding:12px 22px;border-radius:var(--r-el);font-size:14px;font-weight:bold;
+    cursor:pointer;text-decoration:none;transition:.15s;box-shadow:0 2px 8px rgba(185,0,9,.25)}
+  .btn:hover{background:var(--rouge-d);transform:translateY(-1px);box-shadow:0 4px 14px rgba(185,0,9,.32)}
+  .btn.sec{background:var(--aubergine);box-shadow:0 2px 8px rgba(74,30,92,.22)}
+  .btn.sec:hover{background:var(--aubergine-2)}
+  .btn.ghost{background:#fff;color:var(--aubergine);border:1.5px solid var(--bord);box-shadow:none}
+  .btn.ghost:hover{border-color:var(--bleu);background:var(--bleu-l);transform:none}
+
+  .row{display:flex;gap:18px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:200px}
+
+  /* ---- Alerts ---- */
+  .flash{display:flex;gap:8px;background:#fdeaea;border-left:4px solid var(--rouge);
+    color:#7a0006;padding:11px 15px;border-radius:var(--r-el);margin-bottom:12px;font-size:14px}
+  .flash.warn{background:#fff7e6;border-left-color:#e0a900;color:#7a5b00}
+
+  /* ---- Badges ---- */
+  .badge{display:inline-flex;align-items:center;gap:5px;background:var(--bleu-l);
+    color:#3f6470;border:1px solid #cfe0e6;border-radius:999px;padding:4px 12px;
+    font-size:12.5px;font-weight:bold;margin:0 6px 6px 0}
+  .badge.r{background:#fdeaea;color:var(--rouge-d);border-color:#f3c9cb}
+
+  /* ---- Tables ---- */
+  table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;
+    border-radius:var(--r-el);overflow:hidden;border:1px solid var(--bord)}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--bord)}
+  thead th{background:var(--aubergine);color:#fff;font-size:12px;letter-spacing:.4px;
+    text-transform:uppercase}
+  tbody tr:nth-child(even){background:#faf8fc}
+  tbody tr:last-child td{border-bottom:none}
+  .ok{color:#1a7a3a;font-weight:bold} .ko{color:var(--rouge);font-weight:bold}
+
+  /* ---- Preview ---- */
+  .preview-mail{border:1px solid var(--bord);border-radius:var(--r-el);
+    margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow)}
+  .preview-mail .meta{background:linear-gradient(90deg,var(--bleu-l),#fff);
+    padding:10px 14px;font-size:13px;border-bottom:1px solid var(--bord)}
+  .preview-mail .meta b{color:var(--aubergine)}
+  .preview-mail .body{padding:16px;font-size:14px}
+
+  /* ---- Progress ---- */
+  .track{background:#ece7f0;border-radius:999px;height:14px;overflow:hidden;margin:14px 0}
+  .track>div{background:linear-gradient(90deg,var(--rouge),#e23b42);height:100%;width:0;
+    transition:width .4s;border-radius:999px}
+
+  code{background:var(--bleu-l);color:#3f6470;padding:2px 6px;border-radius:5px;font-size:13px}
+  .small{font-size:12px;color:var(--muted)}
+  a{color:var(--rouge)}
+  details summary{cursor:pointer}
+
+  @media(max-width:560px){
+    .card{padding:18px}
+    header{padding:14px 16px} header .brand small{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand"><span class="dot"></span> ÉQUATION <small>· Relances ciblées</small></span>
+  <nav>
+    <a href="/">Composer</a>
+    <a href="/journal">Journal</a>
+    <a href="/logout">Quitter</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  
+    
+  
+  
+<form method="post" action="/preview" enctype="multipart/form-data">
+
+  <div class="card">
+    <h1>Composer une <span class="accent">série</span></h1>
+    <p class="small">Expéditeur : <strong>Equation &lt;contact@equation-sie.com&gt;</strong></p>
+    <p style="margin:10px 0 0">
+      <span class="badge">📨 10–50 destinataires</span>
+      <span class="badge r">⚡ limite OVH 200/h · tu es large</span>
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>👥 Destinataires</h2>
+    <label>Liste collée <span class="hint">Tableau Excel / CSV. 1re ligne = en-têtes. Colonne <code>email</code> obligatoire.</span></label>
+    <textarea name="recipients" rows="7" required
+      placeholder="email,prenom,societe,fonction
+j.durand@acme.fr,Jean,ACME Immobilier,Directeur
+m.leroy@beta.com,Marie,Beta Conseil,Gérante"></textarea>
+    <p class="small">Chaque colonne devient une variable : <code>{prenom}</code>, <code>{societe}</code>, <code>{fonction}</code>…</p>
+  </div>
+
+  <div class="card">
+    <h2 class="r">✍️ Message</h2>
+    <label>Objet</label>
+    <input type="text" name="subject" required
+           placeholder="{prenom}, un bureau qui colle à {societe} ?">
+    <label>Corps du mail (HTML) <span class="hint">Liens <code>&lt;a href&gt;</code> · image inline via <code>&lt;img src="cid:nomfichier.jpg"&gt;</code></span></label>
+    <textarea name="body" rows="12" required
+      placeholder="&lt;p&gt;Bonjour {prenom},&lt;/p&gt;
+&lt;p&gt;Je me permets de vous écrire au sujet de {societe}…&lt;/p&gt;
+&lt;p&gt;&lt;a href=&quot;https://equation-sie.com&quot;&gt;Découvrir nos offres&lt;/a&gt;&lt;/p&gt;
+&lt;img src=&quot;cid:signature.png&quot; width=&quot;320&quot;&gt;"></textarea>
+  </div>
+
+  <div class="card">
+    <h2>📎 Pièces jointes &amp; images</h2>
+    <div class="row">
+      <div>
+        <label>Pièces jointes <span class="hint">PDF, doc, image…</span></label>
+        <input type="file" name="attachments" multiple
+               accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp">
+      </div>
+      <div>
+        <label>Images inline <span class="hint">référencées par <code>cid:nomfichier</code></span></label>
+        <input type="file" name="inline" multiple accept=".png,.jpg,.jpeg,.gif,.webp">
+      </div>
+    </div>
+    <p class="small">Plafond 10.0 Mo / mail. Évite le tout-image (spam-score) : garde du vrai texte.</p>
+  </div>
+
+  <div class="card">
+    <h2>⏱️ Cadence &amp; envoi</h2>
+    <div class="row" style="align-items:flex-end">
+      <div style="max-width:220px">
+        <label>Délai entre envois <span class="hint">secondes (30–60 conseillé)</span></label>
+        <input type="number" name="delay" value="45" min="0" max="600">
+      </div>
+      <div style="text-align:right">
+        <button class="btn sec" type="submit">Prévisualiser →</button>
+      </div>
+    </div>
+    <p class="small">Aucun envoi ne part à cette étape.</p>
+  </div>
+</form>
+
+</div>
+</body>
+</html>

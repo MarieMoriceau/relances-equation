@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Connexion · Relances Equation{% endblock %}
+{% block content %}
+<div class="card" style="max-width:380px;margin:60px auto;text-align:center">
+  <div style="font-size:34px;margin-bottom:6px">✉️</div>
+  <h1>Relances <span class="accent">ciblées</span></h1>
+  <p class="small" style="margin:4px 0 18px">Outil interne Équation · accès protégé</p>
+  <form method="post" style="text-align:left">
+    <label>Mot de passe</label>
+    <input type="password" name="password" autofocus required>
+    <div style="margin-top:18px"><button class="btn" style="width:100%;justify-content:center" type="submit">Entrer →</button></div>
+  </form>
+</div>
+{% endblock %}

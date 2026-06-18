@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Composer · Relances Equation{% endblock %}
+{% block content %}
+<form method="post" action="{{ url_for('preview') }}" enctype="multipart/form-data">
+
+  <div class="card">
+    <h1>Composer une <span class="accent">série</span></h1>
+    <p class="small">Expéditeur : <strong>{{ from_name }} &lt;{{ from_email }}&gt;</strong></p>
+    <p style="margin:10px 0 0">
+      <span class="badge">📨 10–50 destinataires</span>
+      <span class="badge r">⚡ limite OVH {{ ovh_limit }}/h · tu es large</span>
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>👥 Destinataires</h2>
+    <label>Liste collée <span class="hint">Tableau Excel / CSV. 1re ligne = en-têtes. Colonne <code>email</code> obligatoire.</span></label>
+    <textarea name="recipients" rows="7" required
+      placeholder="email,prenom,societe,fonction
+j.durand@acme.fr,Jean,ACME Immobilier,Directeur
+m.leroy@beta.com,Marie,Beta Conseil,Gérante"></textarea>
+    <p class="small">Chaque colonne devient une variable : <code>{prenom}</code>, <code>{societe}</code>, <code>{fonction}</code>…</p>
+  </div>
+
+  <div class="card">
+    <h2 class="r">✍️ Message</h2>
+    <label>Objet</label>
+    <input type="text" name="subject" required
+           placeholder="{prenom}, un bureau qui colle à {societe} ?">
+    <label>Corps du mail (HTML) <span class="hint">Liens <code>&lt;a href&gt;</code> · image inline via <code>&lt;img src="cid:nomfichier.jpg"&gt;</code></span></label>
+    <textarea name="body" rows="12" required
+      placeholder="&lt;p&gt;Bonjour {prenom},&lt;/p&gt;
+&lt;p&gt;Je me permets de vous écrire au sujet de {societe}…&lt;/p&gt;
+&lt;p&gt;&lt;a href=&quot;https://equation-sie.com&quot;&gt;Découvrir nos offres&lt;/a&gt;&lt;/p&gt;
+&lt;img src=&quot;cid:signature.png&quot; width=&quot;320&quot;&gt;"></textarea>
+  </div>
+
+  <div class="card">
+    <h2>📎 Pièces jointes &amp; images</h2>
+    <div class="row">
+      <div>
+        <label>Pièces jointes <span class="hint">PDF, doc, image…</span></label>
+        <input type="file" name="attachments" multiple
+               accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp">
+      </div>
+      <div>
+        <label>Images inline <span class="hint">référencées par <code>cid:nomfichier</code></span></label>
+        <input type="file" name="inline" multiple accept=".png,.jpg,.jpeg,.gif,.webp">
+      </div>
+    </div>
+    <p class="small">Plafond {{ max_mb }} Mo / mail. Évite le tout-image (spam-score) : garde du vrai texte.</p>
+  </div>
+
+  <div class="card">
+    <h2>⏱️ Cadence &amp; envoi</h2>
+    <div class="row" style="align-items:flex-end">
+      <div style="max-width:220px">
+        <label>Délai entre envois <span class="hint">secondes (30–60 conseillé)</span></label>
+        <input type="number" name="delay" value="{{ default_delay }}" min="0" max="600">
+      </div>
+      <div style="text-align:right">
+        <button class="btn sec" type="submit">Prévisualiser →</button>
+      </div>
+    </div>
+    <p class="small">Aucun envoi ne part à cette étape.</p>
+  </div>
+</form>
+{% endblock %}
