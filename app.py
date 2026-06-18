@@ -19,6 +19,7 @@ import time
 import json
 import uuid
 import smtplib
+import imaplib
 import tempfile
 import threading
 from datetime import datetime
@@ -41,6 +42,12 @@ from werkzeug.utils import secure_filename
 # --------------------------------------------------------------------------- #
 SMTP_HOST = os.environ.get("SMTP_HOST", "pro1.mail.ovh.net")   # infra partagée
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+
+# Copie dans le dossier "Envoyés" via IMAP (même serveur OVH que le SMTP).
+SAVE_TO_SENT = os.environ.get("SAVE_TO_SENT", "1") not in ("0", "", "false", "False")
+IMAP_HOST = os.environ.get("IMAP_HOST", SMTP_HOST)             # = SMTP_HOST par défaut
+IMAP_PORT = int(os.environ.get("IMAP_PORT", "993"))
+SENT_FOLDER = os.environ.get("SENT_FOLDER", "")               # vide = détection auto
 REPLY_TO  = os.environ.get("REPLY_TO", "")                     # optionnel (global)
 SECRET_KEY = os.environ.get("SECRET_KEY", os.urandom(24).hex())
 
@@ -52,6 +59,7 @@ ALLOWED_SENDERS = {
     if e.strip()
 }
 
+# Noms affichés (From). Modifiable librement. Fallback = partie avant @.
 SENDER_NAMES = {
     "mbureau@equation-sie.com":      "Marine Bureau de Rotalier",
     "lbastian@equation-sie.com":     "Lionel Bastian",
@@ -236,7 +244,47 @@ def build_message(from_email, from_name, to_email, subject,
 
 
 # --------------------------------------------------------------------------- #
-# Journal
+# Copie dans le dossier "Envoyés" (IMAP)
+# --------------------------------------------------------------------------- #
+def _detect_sent_folder(M):
+    """Trouve le dossier Envoyés : priorité au flag spécial \\Sent, sinon au nom."""
+    if SENT_FOLDER:
+        return SENT_FOLDER
+    try:
+        typ, data = M.list()
+        if typ == "OK" and data:
+            flagged = named = None
+            for raw in data:
+                line = raw.decode("ascii", "ignore") if isinstance(raw, bytes) else str(raw)
+                quoted = re.findall(r'"([^"]*)"', line)
+                name = quoted[-1] if quoted else line.split()[-1].strip('"')
+                if "\\Sent" in line:
+                    flagged = name
+                if named is None and re.search(r"(?i)(sent|envoy)", name):
+                    named = name
+            return flagged or named or "Sent"
+    except Exception:
+        pass
+    return "Sent"
+
+
+def save_to_sent(email, password, msg):
+    """Range une copie du message dans le dossier Envoyés. Best-effort."""
+    if not SAVE_TO_SENT:
+        return True, None
+    try:
+        M = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT, timeout=20)
+        try:
+            M.login(email, password)
+            folder = _detect_sent_folder(M)
+            M.append(folder, "\\Seen",
+                     imaplib.Time2Internaldate(time.time()), msg.as_bytes())
+        finally:
+            try: M.logout()
+            except Exception: pass
+        return True, None
+    except Exception as e:
+        return False, str(e)
 # --------------------------------------------------------------------------- #
 def log_send(entry: dict):
     entry["ts"] = datetime.now().isoformat(timespec="seconds")
@@ -273,6 +321,11 @@ def run_job(job_id):
                 server.login(s_email, s_pass)
                 server.send_message(msg)
             result["status"] = "OK"
+            # Copie dans Envoyés (n'échoue jamais l'envoi lui-même)
+            copied, cerr = save_to_sent(s_email, s_pass, msg)
+            result["copie"] = "OK" if copied else "KO"
+            if not copied:
+                result["copie_err"] = cerr
         except Exception as e:
             result["status"] = "ERREUR"; result["error"] = str(e)
 

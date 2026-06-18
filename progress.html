@@ -26,8 +26,12 @@ async function tick(){
     document.getElementById("bar").style.width=pct+"%";
     document.getElementById("stat").textContent=d.status;
     document.getElementById("counts").textContent=`${d.done}/${total} · ${d.ok} OK · ${d.ko} erreurs`;
-    document.getElementById("rows").innerHTML=d.results.map(x=>
-      `<tr><td>${x.email}</td><td class="${x.status==='OK'?'ok':'ko'}">${x.status}</td><td class="small">${x.error||''}</td></tr>`).join("");
+    document.getElementById("rows").innerHTML=d.results.map(x=>{
+      let detail = x.error || "";
+      if(x.status==="OK" && x.copie==="KO") detail = "envoyé · copie Envoyés ✗";
+      else if(x.status==="OK" && x.copie==="OK") detail = "+ copie Envoyés ✓";
+      return `<tr><td>${x.email}</td><td class="${x.status==='OK'?'ok':'ko'}">${x.status}</td><td class="small">${detail}</td></tr>`;
+    }).join("");
     if(d.status==="terminé"||d.status==="annulé"){document.getElementById("cancelBtn").style.display="none";return;}
   }catch(e){}
   setTimeout(tick,2000);

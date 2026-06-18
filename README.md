@@ -4,6 +4,17 @@ Petit outil web pour envoyer des séries de mails personnalisés (10–50 destin
 en cold outreach B2B, depuis ton adresse pro OVH, en gardant la main sur l'expéditeur
 et la délivrabilité.
 
+## Copie dans « Envoyés »
+Chaque mail envoyé est aussi rangé automatiquement dans le dossier **Envoyés**
+de la boîte OVH de l'expéditeur (via IMAP, même serveur que le SMTP). Aucun
+réglage requis. Pour désactiver : variable `SAVE_TO_SENT=0`. Si le dossier n'est
+pas détecté, forcer son nom avec `SENT_FOLDER` (ex. `Sent` ou `Envoyés`).
+
+## Journal (facultatif)
+La variable `LOG_DIR` est **optionnelle** : sans elle, le journal fonctionne
+quand même (stockage temporaire). Tu peux la supprimer si tu ne tiens pas à un
+historique permanent — chaque mail est de toute façon copié dans tes Envoyés.
+
 ## Multi-expéditeur (4–5 commerciaux)
 Chaque commercial se connecte avec **sa propre adresse + mot de passe OVH**.
 Les mails partent **réellement de sa boîte** (From = lui, réponses vers lui,
