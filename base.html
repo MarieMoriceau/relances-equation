@@ -116,10 +116,11 @@
 </style>
 </head>
 <body>
-{% if session.get('auth') %}
+{% if current_user %}
 <header>
   <span class="brand"><span class="dot"></span> ÉQUATION <small>· Relances ciblées</small></span>
   <nav>
+    <span style="opacity:.7;font-size:13px">👤 {{ current_user.name }}</span>
     <a href="{{ url_for('index') }}">Composer</a>
     <a href="{{ url_for('journal') }}">Journal</a>
     <a href="{{ url_for('logout') }}">Quitter</a>

@@ -9,13 +9,15 @@
 </div>
 <div class="card">
   <table>
-    <thead><tr><th>Date</th><th>Destinataire</th><th>Objet</th><th>Statut</th><th>Détail</th></tr></thead>
+    <thead><tr><th>Date</th><th>Expéditeur</th><th>Destinataire</th><th>Objet</th><th>Statut</th><th>Détail</th></tr></thead>
     <tbody>
     {% for e in entries %}
-      <tr><td class="small">{{ e.ts }}</td><td>{{ e.email }}</td><td class="small">{{ e.subject }}</td>
-          <td class="{{ 'ok' if e.status=='OK' else 'ko' }}">{{ e.status }}</td><td class="small">{{ e.error or '' }}</td></tr>
+      <tr><td class="small">{{ e.ts }}</td><td class="small">{{ e.expediteur or '—' }}</td>
+          <td>{{ e.email }}</td><td class="small">{{ e.subject }}</td>
+          <td class="{{ 'ok' if e.status=='OK' else 'ko' }}">{{ e.status }}</td>
+          <td class="small">{{ e.error or '' }}</td></tr>
     {% else %}
-      <tr><td colspan="5" class="small">Aucun envoi pour le moment.</td></tr>
+      <tr><td colspan="6" class="small">Aucun envoi pour le moment.</td></tr>
     {% endfor %}
     </tbody>
   </table>

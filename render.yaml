@@ -1,0 +1,31 @@
+# Render blueprint — relances ciblées Equation (multi-expéditeur)
+# IMPORTANT : UN SEUL worker (-w 1). Sessions + jobs vivent en mémoire.
+services:
+  - type: web
+    name: relances-equation
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app -w 1 --threads 8 --timeout 120 -b 0.0.0.0:$PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: SMTP_HOST
+        value: pro1.mail.ovh.net
+      - key: SMTP_PORT
+        value: "587"
+      - key: ALLOWED_SENDERS
+        sync: false          # adresses autorisées, séparées par des virgules
+      - key: SECRET_KEY
+        generateValue: true
+      - key: REPLY_TO
+        sync: false
+      - key: DEFAULT_DELAY_S
+        value: "45"
+      - key: MAX_TOTAL_ATTACH_MB
+        value: "10"
+      - key: LOG_DIR
+        value: /var/data
+    disk:
+      name: relances-data
+      mountPath: /var/data
+      sizeGB: 1
