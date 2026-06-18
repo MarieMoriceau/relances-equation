@@ -567,5 +567,13 @@ def healthz():
     return "ok", 200
 
 
+@app.errorhandler(413)
+def too_large(e):
+    flash(f"Fichiers trop volumineux : la limite d'upload est d'environ "
+          f"{int(MAX_TOTAL_ATTACH_MB) + 20} Mo. Compresse le PDF ou envoie un lien "
+          f"(rappel : au-delà de ~25 Mo, beaucoup de boîtes rejettent le mail).")
+    return redirect(url_for("index"))
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=False)
