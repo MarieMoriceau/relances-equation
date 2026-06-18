@@ -173,11 +173,32 @@ def parse_recipients(raw: str):
     if not raw:
         return [], ["Liste de destinataires vide."]
     lines = [l for l in raw.splitlines() if l.strip()]
+
+    # MODE SIMPLE : si la 1re ligne contient déjà un "@", c'est une liste
+    # d'adresses (une par ligne et/ou séparées par des virgules), pas un en-tête.
+    if "@" in lines[0]:
+        rows, errors, seen = [], [], set()
+        for tok in re.split(r"[\s,;]+", raw):
+            tok = tok.strip()
+            if not tok:
+                continue
+            if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", tok):
+                errors.append(f"Adresse ignorée (invalide) : {tok}")
+                continue
+            if tok.lower() in seen:
+                continue
+            seen.add(tok.lower())
+            rows.append({"email": tok})
+        if not rows:
+            errors.append("Aucune adresse e-mail valide trouvée.")
+        return rows, errors
+
+    # MODE TABLEAU : en-tête avec colonnes (pour personnalisation {prenom}, etc.)
     sep = "\t" if "\t" in lines[0] else (";" if ";" in lines[0] else ",")
     headers = [h.strip().lower() for h in lines[0].split(sep)]
     if "email" not in headers:
-        return [], ["La 1re ligne (en-tête) doit contenir une colonne 'email'. "
-                    "Ex. : email,prenom,societe"]
+        return [], ["Colle des adresses (une par ligne ou séparées par des virgules), "
+                    "ou un tableau dont la 1re ligne contient une colonne 'email'."]
     rows, errors, seen = [], [], set()
     for i, line in enumerate(lines[1:], start=2):
         cells = [c.strip() for c in line.split(sep)]
@@ -405,6 +426,15 @@ def preview():
     if not rows or not subject or not body:
         for e in errors: flash(e)
         return redirect(url_for("index"))
+
+    # Garde-fou : variables citées dans l'objet/corps mais absentes des destinataires
+    referenced = set(FIELD_RE.findall(subject + " " + body))
+    available = set().union(*[set(r.keys()) for r in rows]) if rows else set()
+    unresolved = referenced - available
+    if unresolved:
+        errors.append("Variables non remplies (resteront telles quelles dans le mail) : "
+                      + ", ".join("{%s}" % v for v in sorted(unresolved))
+                      + ". En liste d'adresses simple, seule {email} est connue.")
 
     previews = [{"email": r["email"], "subject": personalize(subject, r),
                  "body": personalize(body, r)} for r in rows]
