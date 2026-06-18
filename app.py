@@ -52,12 +52,14 @@ ALLOWED_SENDERS = {
     if e.strip()
 }
 
-# Noms affichés (From). Modifiable librement. Fallback = partie avant @.
 SENDER_NAMES = {
-    "mbureau@equation-sie.com":     "Marine Bureau de Rotalier",
-    "lbastian@equation-sie.com":    "Lionel Bastian",
-    "rabou-khalil@equation-sie.com":"Richard Abou Khalil",
-    "nvial@equation-sie.com":       "Nicolas Vial",
+    "mbureau@equation-sie.com":      "Marine Bureau de Rotalier",
+    "lbastian@equation-sie.com":     "Lionel Bastian",
+    "rabou-khalil@equation-sie.com": "Richard Abou Khalil",
+    "nvial@equation-sie.com":        "Nicolas Vial",
+    "mmoriceau@equation-sie.com":    "Marie Moriceau",
+    "smoinet@equation-sie.com":      "Séverine Moinet",
+    "mbastian@equation-sie.com":     "Michel Bastian",
 }
 
 MAX_TOTAL_ATTACH_MB = float(os.environ.get("MAX_TOTAL_ATTACH_MB", "10"))
