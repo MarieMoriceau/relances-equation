@@ -82,7 +82,7 @@ ALLOWED_ATTACH = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp",
                   ".doc", ".docx", ".xls", ".xlsx", ".csv", ".txt"}
 ALLOWED_INLINE = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=".")
 app.secret_key = SECRET_KEY
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 
