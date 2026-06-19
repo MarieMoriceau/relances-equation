@@ -24,7 +24,8 @@ async function tick(){
     const d=await(await fetch(`/progress/${jobId}/data`)).json();
     const pct=total?Math.round(d.done/total*100):0;
     document.getElementById("bar").style.width=pct+"%";
-    document.getElementById("stat").textContent=d.status;
+    document.getElementById("stat").textContent =
+      d.status==="préparation" ? "préparation des pièces jointes…" : d.status;
     document.getElementById("counts").textContent=`${d.done}/${total} · ${d.ok} OK · ${d.ko} erreurs`;
     document.getElementById("rows").innerHTML=d.results.map(x=>{
       let detail = x.error || "";

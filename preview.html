@@ -13,7 +13,7 @@
   {% if attachments or inline_images %}
   <p class="small">
     {% if attachments %}<strong>Pièces jointes :</strong>
-      {% for a in attachments %}{{ a.filename }} ({{ (a.size_kb/1024)|round(1) }} Mo{% if a.orig_kb %}, compressé depuis {{ (a.orig_kb/1024)|round(1) }} Mo ✓{% endif %}){% if not loop.last %} · {% endif %}{% endfor %}<br>{% endif %}
+      {% for a in attachments %}{{ a.filename }} ({{ (a.size_kb/1024)|round(1) }} Mo{% if a.to_compress %}, sera compressée à l'envoi{% endif %}){% if not loop.last %} · {% endif %}{% endfor %}<br>{% endif %}
     {% if inline_images %}<strong>Photos :</strong>
       {% for i in inline_images %}<code>[photo{{ loop.index }}]</code> = {{ i.filename }} ({{ i.size_kb }} Ko){% if not loop.last %} · {% endif %}{% endfor %}{% endif %}
   </p>

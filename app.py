@@ -444,6 +444,23 @@ def log_send(entry: dict):
 def run_job(job_id):
     with LOCK:
         job = JOBS[job_id]
+
+    # Compression des gros PDF ici (en tâche de fond, ne bloque pas l'aperçu)
+    if any(a.get("to_compress") for a in job["attachments"]):
+        job["status"] = "préparation"
+        for a in job["attachments"]:
+            if a.get("to_compress"):
+                try:
+                    orig = os.path.getsize(a["path"])
+                    newpath, newsize = compress_pdf(a["path"])
+                    if newsize and newsize < orig:
+                        a["path"] = newpath
+                        a["size_kb"] = round(newsize / 1024)
+                        a["orig_kb"] = round(orig / 1024)
+                except Exception:
+                    pass
+                a["to_compress"] = False
+
     job["status"] = "running"
 
     s_email = job["sender_email"]
@@ -531,12 +548,10 @@ def preview():
         path = os.path.join(tmpdir, "att_" + fname); f.save(path)
         sz = os.path.getsize(path)
         entry = {"path": path, "filename": fname}
-        # Compression auto des gros PDF (images ré-échantillonnées)
+        # Gros PDF : on NE compresse PAS ici (trop lent dans l'aperçu).
+        # On le marque ; la compression se fera à l'envoi, en tâche de fond.
         if ext == ".pdf" and sz > COMPRESS_PDF_OVER_MB * 1024 * 1024:
-            newpath, newsize = compress_pdf(path)
-            if newsize and newsize < sz:
-                entry["orig_kb"] = round(sz / 1024)
-                path = newpath; entry["path"] = newpath; sz = newsize
+            entry["to_compress"] = True
         total_bytes += sz
         entry["size_kb"] = round(sz / 1024)
         attachments.append(entry)
