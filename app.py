@@ -145,7 +145,13 @@ def inject_user():
 def login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        if not current_user():
+        u = current_user()
+        if not u:
+            return redirect(url_for("login"))
+        # Mot de passe perdu (redémarrage du service) -> reconnexion immédiate,
+        # plutôt que de laisser composer puis bloquer à l'envoi.
+        if not has_password(u["email"]):
+            flash("Session expirée (le service a redémarré). Reconnecte-toi pour continuer.")
             return redirect(url_for("login"))
         return f(*args, **kwargs)
     return wrapper
@@ -590,16 +596,29 @@ def preview():
     if want_sig and not signature_html:
         errors.append("Aucune signature configurée pour ton adresse — le mail partira sans signature.")
 
-    # Photos encodées UNE seule fois (réutilisées pour tous les aperçus) -> rapide
+    # Photos : miniatures légères pour l'aperçu (le mail réel garde la pleine qualité)
     photo_data = {}
     for img in inline_images:
+        uri = None
         try:
-            with open(img["path"], "rb") as fh:
-                b64 = base64.b64encode(fh.read()).decode()
-            mime = mimetypes.guess_type(img["filename"])[0] or "image/png"
-            photo_data[img["cid"]] = f"data:{mime};base64,{b64}"
-        except OSError:
-            pass
+            from PIL import Image as _Image
+            import io as _io2
+            im = _Image.open(img["path"])
+            im.thumbnail((640, 640))
+            buf = _io2.BytesIO()
+            im.convert("RGB").save(buf, "JPEG", quality=70)
+            uri = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+        except Exception:
+            uri = None
+        if uri is None:   # repli : image d'origine
+            try:
+                with open(img["path"], "rb") as fh:
+                    b64 = base64.b64encode(fh.read()).decode()
+                mime = mimetypes.guess_type(img["filename"])[0] or "image/png"
+                uri = f"data:{mime};base64,{b64}"
+            except OSError:
+                continue
+        photo_data[img["cid"]] = uri
 
     def render_preview(html):
         for cid, uri in photo_data.items():
