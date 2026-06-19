@@ -4,7 +4,7 @@
 <form method="post" action="{{ url_for('preview') }}" enctype="multipart/form-data">
 
   <div class="card">
-    <h1>Composer une <span class="accent">série</span></h1>
+    <h1>Composer un <span class="accent">mail</span></h1>
     <p class="small">Expéditeur : <strong>{{ from_name }} &lt;{{ from_email }}&gt;</strong></p>
     <p style="margin:10px 0 0">
       <span class="badge">📨 10–50 destinataires</span>
@@ -29,10 +29,19 @@ a@societe.com, b@autre.fr, c@client.com"></textarea>
     <label>Objet</label>
     <input type="text" name="subject" required
            placeholder="{prenom}, un bureau qui colle à {societe} ?">
-    <label>Corps du mail (HTML) <span class="hint">Liens <code>&lt;a href&gt;</code>. Tes photos s'ajoutent automatiquement sous le texte (ou place-les où tu veux avec <code>cid:nomfichier</code>).</span></label>
+
+    <div style="background:var(--bleu-l);border-left:4px solid var(--bleu);border-radius:var(--r-el);padding:12px 15px;margin:16px 0 4px;font-size:13px;line-height:1.6;">
+      <strong>📷 Insérer une photo dans le mail</strong><br>
+      1. Ajoute ta photo dans <strong>« Photos dans le message »</strong> (juste en dessous).<br>
+      2. Dans ton texte, écris <code>[photo1]</code> là où tu veux qu'elle apparaisse.<br>
+      Plusieurs photos ? <code>[photo1]</code>, <code>[photo2]</code>, <code>[photo3]</code>… dans l'ordre où tu les ajoutes. Sans repère, elles se mettent à la fin.
+    </div>
+
+    <label>Corps du mail (HTML) <span class="hint">Liens cliquables : <code>&lt;a href="..."&gt;texte&lt;/a&gt;</code></span></label>
     <textarea name="body" rows="12" required
       placeholder="&lt;p&gt;Bonjour,&lt;/p&gt;
 &lt;p&gt;Je me permets de vous écrire au sujet de votre recherche de bureaux…&lt;/p&gt;
+[photo1]
 &lt;p&gt;&lt;a href=&quot;https://equation-sie.com&quot;&gt;Découvrir nos offres&lt;/a&gt;&lt;/p&gt;"></textarea>
   </div>
 
@@ -45,7 +54,7 @@ a@societe.com, b@autre.fr, c@client.com"></textarea>
                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp">
       </div>
       <div>
-        <label>Photos dans le message <span class="hint">s'affichent dans le corps, sous ton texte</span></label>
+        <label>Photos dans le message <span class="hint">place-les via <code>[photo1]</code>, <code>[photo2]</code>… dans le texte</span></label>
         <input type="file" name="inline" multiple accept=".png,.jpg,.jpeg,.gif,.webp">
       </div>
     </div>
@@ -54,6 +63,10 @@ a@societe.com, b@autre.fr, c@client.com"></textarea>
 
   <div class="card">
     <h2>⏱️ Cadence &amp; envoi</h2>
+    <label style="display:flex;align-items:center;gap:9px;font-weight:normal;margin:0 0 16px;cursor:pointer;">
+      <input type="checkbox" name="signature" checked style="width:auto;">
+      <span>Ajouter ma signature Équation en bas du mail</span>
+    </label>
     <div class="row" style="align-items:flex-end">
       <div style="max-width:220px">
         <label>Délai entre envois <span class="hint">secondes (30–60 conseillé)</span></label>

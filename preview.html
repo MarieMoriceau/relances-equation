@@ -14,8 +14,8 @@
   <p class="small">
     {% if attachments %}<strong>Pièces jointes :</strong>
       {% for a in attachments %}{{ a.filename }} ({{ a.size_kb }} Ko){% if not loop.last %} · {% endif %}{% endfor %}<br>{% endif %}
-    {% if inline_images %}<strong>Images inline :</strong>
-      {% for i in inline_images %}<code>cid:{{ i.cid }}</code> ({{ i.size_kb }} Ko){% if not loop.last %} · {% endif %}{% endfor %}{% endif %}
+    {% if inline_images %}<strong>Photos :</strong>
+      {% for i in inline_images %}<code>[photo{{ loop.index }}]</code> = {{ i.filename }} ({{ i.size_kb }} Ko){% if not loop.last %} · {% endif %}{% endfor %}{% endif %}
   </p>
   {% endif %}
 

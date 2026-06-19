@@ -72,6 +72,13 @@ SENDER_NAMES = {
     "mbastian@equation-sie.com":     "Michel Bastian",
 }
 
+# Signatures HTML par expéditeur (fichier dédié signatures.py, facile à éditer).
+try:
+    from signatures import SIGNATURES
+except ImportError:
+    SIGNATURES = {}
+
+
 MAX_TOTAL_ATTACH_MB = float(os.environ.get("MAX_TOTAL_ATTACH_MB", "25"))
 DEFAULT_DELAY_S     = int(os.environ.get("DEFAULT_DELAY_S", "45"))
 OVH_HOURLY_LIMIT    = 200  # mails / heure / compte (doc OVH)
@@ -90,7 +97,9 @@ app.secret_key = SECRET_KEY
 app.config["MAX_CONTENT_LENGTH"] = int((MAX_TOTAL_ATTACH_MB + 20) * 1024 * 1024)
 
 # État en mémoire (d'où le worker unique)
-SESSIONS = {}          # token -> {"email","password","name"}
+# Identité (email, name) -> stockée dans le cookie signé (survit aux redémarrages).
+# Mot de passe OVH -> uniquement en mémoire ici, jamais sur disque ni dans le cookie.
+PASSWORDS = {}         # email -> mot de passe (perdu au redémarrage -> reconnexion)
 JOBS = {}
 LOCK = threading.Lock()
 
@@ -116,8 +125,15 @@ def smtp_check(email: str, password: str):
 
 
 def current_user():
-    tok = session.get("token")
-    return SESSIONS.get(tok) if tok else None
+    """Identité issue du cookie signé (survit aux redémarrages)."""
+    email = session.get("email")
+    if not email:
+        return None
+    return {"email": email, "name": session.get("name", display_name(email))}
+
+
+def has_password(email):
+    return bool(PASSWORDS.get(email))
 
 
 @app.context_processor
@@ -146,18 +162,18 @@ def login():
         if not ok:
             flash(err)
             return render_template("login.html")
-        tok = uuid.uuid4().hex
-        SESSIONS[tok] = {"email": email, "password": password,
-                         "name": display_name(email)}
-        session["token"] = tok
+        session["email"] = email
+        session["name"] = display_name(email)
+        PASSWORDS[email] = password
         return redirect(url_for("index"))
     return render_template("login.html")
 
 
 @app.route("/logout")
 def logout():
-    tok = session.pop("token", None)
-    SESSIONS.pop(tok, None)
+    email = session.get("email")
+    PASSWORDS.pop(email, None)
+    session.clear()
     return redirect(url_for("login"))
 
 
@@ -239,19 +255,37 @@ PHOTO_TAG = ('<img src="cid:{cid}" alt="{name}" '
 
 
 def embed_photos(body: str, inline_images) -> str:
-    """Ajoute au corps les photos qui n'ont pas été placées à la main via cid:."""
+    """Place chaque photo là où un repère apparaît dans le corps :
+       [photo1], [photo2]… (ordre d'upload), ou [nomdufichier].
+       Sinon (aucun repère et pas de cid: manuel), la photo est ajoutée à la fin."""
+    body = body or ""
+    for i, img in enumerate(inline_images, start=1):
+        tag = PHOTO_TAG.format(cid=img["cid"], name=img["filename"])
+        base = os.path.splitext(img["filename"])[0]
+        for marker in (f"[photo{i}]", f"[{img['filename']}]", f"[{base}]"):
+            body = re.sub(re.escape(marker), lambda _m: tag, body, flags=re.IGNORECASE)
+    # Filet de sécurité : photos non placées (ni repère, ni cid: manuel) -> à la fin
     extra = "".join(
         PHOTO_TAG.format(cid=img["cid"], name=img["filename"])
         for img in inline_images
-        if f"cid:{img['cid']}" not in (body or "")
+        if f"cid:{img['cid']}" not in body
     )
-    return (body or "") + extra
+    return body + extra
 
 
-def body_for_preview(body: str, inline_images) -> str:
-    """Comme l'email réel, mais les cid: deviennent des images visibles (base64)."""
-    body = embed_photos(body, inline_images)
-    for img in inline_images:
+def assemble_body(template: str, row: dict, photos, signature_html: str) -> str:
+    """Corps final : texte personnalisé -> photos -> signature."""
+    body = personalize(template, row)
+    body = embed_photos(body, photos)
+    if signature_html:
+        body = body + "<br>" + signature_html
+    return body
+
+
+def inline_to_data(body: str, photos) -> str:
+    """Rend les photos cid: visibles dans l'aperçu (base64). La signature
+    utilise une image en ligne (URL) qui s'affiche déjà toute seule."""
+    for img in photos:
         try:
             with open(img["path"], "rb") as fh:
                 b64 = base64.b64encode(fh.read()).decode()
@@ -366,7 +400,7 @@ def run_job(job_id):
             job["status"] = "annulé"; break
         to_email = row["email"]
         subject = personalize(job["subject"], row)
-        body = embed_photos(personalize(job["body"], row), job["inline_images"])
+        body = assemble_body(job["body"], row, job["inline_images"], job["signature_html"])
         result = {"email": to_email, "subject": subject, "expediteur": s_email}
         try:
             msg = build_message(s_email, s_name, to_email, subject, body,
@@ -470,8 +504,14 @@ def preview():
                       + ", ".join("{%s}" % v for v in sorted(unresolved))
                       + ". En liste d'adresses simple, seule {email} est connue.")
 
+    want_sig = request.form.get("signature") == "on"
+    signature_html = SIGNATURES.get(u["email"].lower(), "") if want_sig else ""
+    if want_sig and not signature_html:
+        errors.append("Aucune signature configurée pour ton adresse — le mail partira sans signature.")
+
     previews = [{"email": r["email"], "subject": personalize(subject, r),
-                 "body": body_for_preview(personalize(body, r), inline_images)}
+                 "body": inline_to_data(assemble_body(body, r, inline_images, signature_html),
+                                        inline_images)}
                 for r in rows]
 
     job_id = uuid.uuid4().hex
@@ -480,7 +520,8 @@ def preview():
             "id": job_id, "status": "préparé", "subject": subject, "body": body,
             "delay": delay, "recipients": rows, "attachments": attachments,
             "inline_images": inline_images, "tmpdir": tmpdir,
-            "sender_email": u["email"], "sender_password": u["password"],
+            "signature_html": signature_html,
+            "sender_email": u["email"], "sender_password": None,
             "sender_name": u["name"],
             "results": [], "done": 0, "ok": 0, "ko": 0,
             "total": len(rows), "cancel": False,
@@ -506,6 +547,13 @@ def send():
     if job["sender_email"] != current_user()["email"]:
         flash("Cette série appartient à un autre expéditeur.")
         return redirect(url_for("index"))
+    # Mot de passe (en mémoire) : perdu après un redémarrage -> reconnexion
+    pwd = PASSWORDS.get(job["sender_email"])
+    if not pwd:
+        flash("Session de sécurité expirée (le service a redémarré). "
+              "Reconnecte-toi puis relance l'envoi.")
+        return redirect(url_for("login"))
+    job["sender_password"] = pwd
     job["status"] = "running"
     threading.Thread(target=run_job, args=(job_id,), daemon=True).start()
     return redirect(url_for("progress_page", job_id=job_id))
