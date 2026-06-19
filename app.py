@@ -104,6 +104,38 @@ PASSWORDS = {}         # email -> mot de passe (perdu au redémarrage -> reconne
 JOBS = {}
 LOCK = threading.Lock()
 
+# --- Auto-login optionnel ---------------------------------------------------- #
+# Pré-charge des mots de passe au démarrage pour éviter de se reconnecter après
+# chaque redémarrage. À DÉFINIR UNIQUEMENT dans l'onglet Environment de Render,
+# JAMAIS dans le code/GitHub.
+#   - Cas simple (ton compte) : AUTOLOGIN_EMAIL + AUTOLOGIN_PASSWORD
+#   - Plusieurs comptes        : AUTOLOGIN = "email1:mdp1;email2:mdp2"
+# La connexion reste protégée par le cookie : un mot de passe pré-chargé ne
+# connecte personne tout seul, il évite juste d'avoir à le re-saisir.
+def _preload_passwords():
+    # Compte simple : AUTOLOGIN_EMAIL + AUTOLOGIN_PASSWORD
+    em = os.environ.get("AUTOLOGIN_EMAIL", "").strip().lower()
+    pw = os.environ.get("AUTOLOGIN_PASSWORD", "")
+    if em and pw:
+        PASSWORDS[em] = pw
+    # Plusieurs comptes (commerciaux) : paires numérotées, robustes aux caractères
+    # spéciaux dans les mots de passe.
+    #   AUTOLOGIN_1_EMAIL / AUTOLOGIN_1_PASSWORD, AUTOLOGIN_2_EMAIL / ...
+    for n in range(1, 21):
+        e = os.environ.get("AUTOLOGIN_%d_EMAIL" % n, "").strip().lower()
+        p = os.environ.get("AUTOLOGIN_%d_PASSWORD" % n, "")
+        if e and p:
+            PASSWORDS[e] = p
+    # Format compact optionnel : AUTOLOGIN = "email1:mdp1;email2:mdp2"
+    blob = os.environ.get("AUTOLOGIN", "").strip()
+    for pair in blob.split(";"):
+        if ":" in pair:
+            e, p = pair.split(":", 1)
+            e = e.strip().lower(); p = p.strip()
+            if e and p:
+                PASSWORDS[e] = p
+_preload_passwords()
+
 
 # --------------------------------------------------------------------------- #
 # Authentification (identifiants OVH de chacun)
@@ -261,13 +293,22 @@ PHOTO_TAG = ('<img src="cid:{cid}" alt="{name}" '
              'style="max-width:100%;height:auto;display:block;margin:14px 0;border-radius:4px;">')
 
 
-def embed_photos(body: str, inline_images) -> str:
+def photo_tag(cid, name, center=False):
+    """Toutes les photos à la même largeur (600px, réduites si l'écran est plus
+    petit). Centrées ou alignées à gauche selon le choix."""
+    margin = "14px auto" if center else "14px 0"
+    return ('<img src="cid:%s" alt="%s" '
+            'style="width:600px;max-width:100%%;height:auto;display:block;'
+            'margin:%s;border-radius:4px;">' % (cid, name, margin))
+
+
+def embed_photos(body: str, inline_images, center=False) -> str:
     """Place chaque photo là où un repère apparaît dans le corps. Repères tolérés
     (espaces et majuscules ignorés) : [photo1], [photo 1], [Photo1], ou [nomdufichier].
     Sinon (aucun repère, ni cid: manuel), la photo est ajoutée à la fin."""
     body = body or ""
     for i, img in enumerate(inline_images, start=1):
-        tag = PHOTO_TAG.format(cid=img["cid"], name=img["filename"])
+        tag = photo_tag(img["cid"], img["filename"], center)
         base = os.path.splitext(img["filename"])[0]
         patterns = [
             r"\[\s*photo\s*" + str(i) + r"\s*\]",                 # [photo1] / [ photo 1 ]
@@ -278,17 +319,17 @@ def embed_photos(body: str, inline_images) -> str:
             body = re.sub(pat, lambda _m: tag, body, flags=re.IGNORECASE)
     # Filet de sécurité : photos non placées -> à la fin
     extra = "".join(
-        PHOTO_TAG.format(cid=img["cid"], name=img["filename"])
+        photo_tag(img["cid"], img["filename"], center)
         for img in inline_images
         if f"cid:{img['cid']}" not in body
     )
     return body + extra
 
 
-def assemble_body(template: str, row: dict, photos, signature_html: str) -> str:
+def assemble_body(template: str, row: dict, photos, signature_html: str, center=False) -> str:
     """Corps final : texte personnalisé -> photos -> signature."""
     body = personalize(template, row)
-    body = embed_photos(body, photos)
+    body = embed_photos(body, photos, center)
     if signature_html:
         body = body + "<br>" + signature_html
     return body
@@ -398,45 +439,63 @@ def build_message(from_email, from_name, to_email, subject,
 # --------------------------------------------------------------------------- #
 # Copie dans le dossier "Envoyés" (IMAP)
 # --------------------------------------------------------------------------- #
-def _detect_sent_folder(M):
-    """Trouve le dossier Envoyés : priorité au flag spécial \\Sent, sinon au nom."""
+def _sent_candidates(M):
+    """Liste ordonnée de dossiers 'Envoyés' à essayer : flag \\Sent d'abord,
+    puis noms contenant sent/envoy, puis valeurs par défaut courantes OVH."""
+    cands = []
     if SENT_FOLDER:
-        return SENT_FOLDER
+        cands.append(SENT_FOLDER)
     try:
         typ, data = M.list()
         if typ == "OK" and data:
-            flagged = named = None
+            flagged, named = [], []
             for raw in data:
                 line = raw.decode("ascii", "ignore") if isinstance(raw, bytes) else str(raw)
                 quoted = re.findall(r'"([^"]*)"', line)
                 name = quoted[-1] if quoted else line.split()[-1].strip('"')
                 if "\\Sent" in line:
-                    flagged = name
-                if named is None and re.search(r"(?i)(sent|envoy)", name):
-                    named = name
-            return flagged or named or "Sent"
+                    flagged.append(name)
+                elif re.search(r"(?i)(sent|envoy)", name):
+                    named.append(name)
+            cands += flagged + named
     except Exception:
         pass
-    return "Sent"
+    # Valeurs par défaut courantes (OVH / Open-Xchange)
+    cands += ["Sent", "Envoy&AOk-s", "INBOX.Sent", "INBOX.Envoy&AOk-s",
+              "Sent Messages", "INBOX.Sent Messages"]
+    seen, ordered = set(), []
+    for c in cands:
+        if c and c not in seen:
+            seen.add(c); ordered.append(c)
+    return ordered
 
 
 def save_to_sent(email, password, msg):
-    """Range une copie du message dans le dossier Envoyés. Best-effort."""
+    """Range une copie du message dans le dossier Envoyés. Best-effort.
+    Essaie plusieurs noms de dossier ; renvoie la dernière erreur si tout échoue."""
     if not SAVE_TO_SENT:
         return True, None
+    last_err = "aucun dossier Envoyés trouvé"
     try:
         M = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT, timeout=20)
         try:
             M.login(email, password)
-            folder = _detect_sent_folder(M)
-            M.append(folder, "\\Seen",
-                     imaplib.Time2Internaldate(time.time()), msg.as_bytes())
+            when = imaplib.Time2Internaldate(time.time())
+            raw = msg.as_bytes()
+            for folder in _sent_candidates(M):
+                try:
+                    typ, _ = M.append('"%s"' % folder, "\\Seen", when, raw)
+                    if typ == "OK":
+                        return True, None
+                    last_err = "réponse %s pour le dossier %s" % (typ, folder)
+                except Exception as e:
+                    last_err = "%s (dossier %s)" % (e, folder)
         finally:
             try: M.logout()
             except Exception: pass
-        return True, None
     except Exception as e:
-        return False, str(e)
+        return False, "IMAP %s:%s — %s" % (IMAP_HOST, IMAP_PORT, e)
+    return False, last_err
 # --------------------------------------------------------------------------- #
 def log_send(entry: dict):
     entry["ts"] = datetime.now().isoformat(timespec="seconds")
@@ -480,7 +539,7 @@ def run_job(job_id):
             job["status"] = "annulé"; break
         to_email = row["email"]
         subject = personalize(job["subject"], row)
-        body = assemble_body(job["body"], row, job["inline_images"], job["signature_html"])
+        body = assemble_body(job["body"], row, job["inline_images"], job["signature_html"], job.get("center", False))
         result = {"email": to_email, "subject": subject, "expediteur": s_email}
         try:
             msg = build_message(s_email, s_name, to_email, subject, body,
@@ -525,9 +584,24 @@ def run_job(job_id):
 @login_required
 def index():
     u = current_user()
+    pf = {}
+    edit_id = request.args.get("edit", "")
+    if edit_id:
+        with LOCK:
+            job = JOBS.get(edit_id)
+        if job and job.get("sender_email") == u["email"]:
+            pf = {
+                "recipients": job.get("recipients_raw", ""),
+                "subject": job.get("subject", ""),
+                "body": job.get("body", ""),
+                "delay": job.get("delay", DEFAULT_DELAY_S),
+                "signature": job.get("want_sig", True),
+                "center": job.get("center", False),
+                "had_files": bool(job.get("attachments") or job.get("inline_images")),
+            }
     return render_template("index.html", default_delay=DEFAULT_DELAY_S,
                            max_mb=MAX_TOTAL_ATTACH_MB, ovh_limit=OVH_HOURLY_LIMIT,
-                           from_name=u["name"], from_email=u["email"])
+                           from_name=u["name"], from_email=u["email"], pf=pf)
 
 
 @app.route("/preview", methods=["POST"])
@@ -537,7 +611,8 @@ def preview():
     subject = request.form.get("subject", "").strip()
     body = request.form.get("body", "").strip()
     delay = max(0, int(request.form.get("delay") or DEFAULT_DELAY_S))
-    rows, errors = parse_recipients(request.form.get("recipients", ""))
+    recipients_raw = request.form.get("recipients", "")
+    rows, errors = parse_recipients(recipients_raw)
     if not subject: errors.append("Objet manquant.")
     if not body: errors.append("Corps du mail manquant.")
     if not rows: errors.append("Aucun destinataire valide.")
@@ -626,8 +701,9 @@ def preview():
         return html
 
     PREVIEW_LIMIT = 5
+    center = request.form.get("center_photos") == "on"
     previews = [{"email": r["email"], "subject": personalize(subject, r),
-                 "body": render_preview(assemble_body(body, r, inline_images, signature_html))}
+                 "body": render_preview(assemble_body(body, r, inline_images, signature_html, center))}
                 for r in rows[:PREVIEW_LIMIT]]
     more_count = max(0, len(rows) - PREVIEW_LIMIT)
 
@@ -637,7 +713,8 @@ def preview():
             "id": job_id, "status": "préparé", "subject": subject, "body": body,
             "delay": delay, "recipients": rows, "attachments": attachments,
             "inline_images": inline_images, "tmpdir": tmpdir,
-            "signature_html": signature_html,
+            "signature_html": signature_html, "center": center,
+            "recipients_raw": recipients_raw, "want_sig": want_sig,
             "sender_email": u["email"], "sender_password": None,
             "sender_name": u["name"],
             "results": [], "done": 0, "ok": 0, "ko": 0,
@@ -676,8 +753,19 @@ def send():
     return redirect(url_for("progress_page", job_id=job_id))
 
 
+def identity_required(f):
+    """Comme login_required mais SANS exiger le mot de passe : sert à consulter
+    la progression d'un envoi déjà lancé, même après un redémarrage."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not current_user():
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return wrapper
+
+
 @app.route("/progress/<job_id>")
-@login_required
+@identity_required
 def progress_page(job_id):
     with LOCK:
         job = JOBS.get(job_id)
@@ -687,18 +775,19 @@ def progress_page(job_id):
 
 
 @app.route("/progress/<job_id>/data")
-@login_required
+@identity_required
 def progress_data(job_id):
     with LOCK:
         job = JOBS.get(job_id)
     if not job:
-        return jsonify({"error": "introuvable"}), 404
+        return jsonify({"status": "introuvable", "total": 0, "done": 0,
+                        "ok": 0, "ko": 0, "results": []}), 200
     return jsonify({"status": job["status"], "total": job["total"], "done": job["done"],
                     "ok": job["ok"], "ko": job["ko"], "results": job["results"]})
 
 
 @app.route("/cancel/<job_id>", methods=["POST"])
-@login_required
+@identity_required
 def cancel(job_id):
     with LOCK:
         job = JOBS.get(job_id)

@@ -23,7 +23,7 @@
 
   <form method="post" action="{{ url_for('send') }}" style="margin-top:14px">
     <input type="hidden" name="job_id" value="{{ job_id }}">
-    <a class="btn ghost" href="{{ url_for('index') }}">← Modifier</a>
+    <a class="btn ghost" href="{{ url_for('index') }}?edit={{ job_id }}">← Modifier</a>
     <button class="btn" type="submit"
             onclick="return confirm('Lancer l\'envoi à {{ count }} destinataires ?')">
       🚀 Envoyer la série

@@ -4,9 +4,12 @@
 <div class="card">
   <h1>Envoi <span class="accent">en cours</span></h1>
   <p class="small">⚠ Garde cet onglet ouvert jusqu'à la fin : il maintient le service réveillé pendant les pauses.</p>
+  <div id="done-banner" style="display:none;background:#eaf7ee;border-left:4px solid #2e7d32;
+       border-radius:8px;padding:14px 16px;margin:0 0 14px;font-weight:bold;color:#1b5e20;"></div>
   <div class="track"><div id="bar"></div></div>
   <p><span class="badge r" id="stat">démarrage…</span> <span class="badge" id="counts"></span></p>
   <button class="btn ghost" id="cancelBtn" onclick="cancelJob()">Interrompre</button>
+  <a class="btn ghost" href="{{ url_for('index') }}">Nouvel envoi</a>
   <a class="btn ghost" href="{{ url_for('journal') }}">Voir le journal</a>
 </div>
 
@@ -29,11 +32,26 @@ async function tick(){
     document.getElementById("counts").textContent=`${d.done}/${total} · ${d.ok} OK · ${d.ko} erreurs`;
     document.getElementById("rows").innerHTML=d.results.map(x=>{
       let detail = x.error || "";
-      if(x.status==="OK" && x.copie==="KO") detail = "envoyé · copie Envoyés ✗";
+      if(x.status==="OK" && x.copie==="KO") detail = "envoyé · copie Envoyés ✗ " + (x.copie_err? "("+x.copie_err+")":"");
       else if(x.status==="OK" && x.copie==="OK") detail = "+ copie Envoyés ✓";
       return `<tr><td>${x.email}</td><td class="${x.status==='OK'?'ok':'ko'}">${x.status}</td><td class="small">${detail}</td></tr>`;
     }).join("");
-    if(d.status==="terminé"||d.status==="annulé"){document.getElementById("cancelBtn").style.display="none";return;}
+    if(d.status==="terminé"||d.status==="annulé"){
+      document.getElementById("cancelBtn").style.display="none";
+      const b=document.getElementById("done-banner");
+      if(d.status==="terminé"){
+        let msg = `✅ C'est parti ! ${d.ok} mail${d.ok>1?'s':''} envoyé${d.ok>1?'s':''} avec succès.`;
+        if(d.ko>0) msg += ` ⚠ ${d.ko} en erreur (voir le détail ci-dessous).`;
+        b.textContent = msg;
+      } else {
+        b.style.background="#fdecea"; b.style.borderLeftColor="#b90009"; b.style.color="#7f1d1d";
+        b.textContent = `Envoi interrompu — ${d.ok} déjà envoyé${d.ok>1?'s':''}.`;
+      }
+      b.style.display="block";
+      document.querySelector("h1").innerHTML = d.status==="terminé"
+        ? 'Envoi <span class="accent">terminé</span>' : 'Envoi <span class="accent">interrompu</span>';
+      return;
+    }
   }catch(e){}
   setTimeout(tick,2000);
 }

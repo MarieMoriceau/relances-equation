@@ -6,6 +6,11 @@
   <div class="card">
     <h1>Composer un <span class="accent">mail</span></h1>
     <p class="small">Expéditeur : <strong>{{ from_name }} &lt;{{ from_email }}&gt;</strong></p>
+    {% if pf.had_files %}
+    <div style="background:#fff7e6;border-left:4px solid #d98a00;border-radius:8px;padding:11px 14px;margin:12px 0 0;font-size:13px;">
+      ✏️ Tu reprends ton brouillon — ton texte est conservé. <strong>Pense à re-sélectionner tes photos / pièces jointes</strong> (les fichiers ne se gardent pas).
+    </div>
+    {% endif %}
     <p style="margin:10px 0 0">
       <span class="badge">📨 10–50 destinataires</span>
       <span class="badge r">⚡ limite OVH {{ ovh_limit }}/h · tu es large</span>
@@ -20,14 +25,14 @@
 mmoriceau@equation-sie.com
 
 — ou —
-a@societe.com, b@autre.fr, c@client.com"></textarea>
+a@societe.com, b@autre.fr, c@client.com">{{ pf.recipients or '' }}</textarea>
     <p class="small">Pour <strong>personnaliser</strong> (<code>{prenom}</code>, <code>{societe}</code>…), colle plutôt un tableau Excel dont la 1re ligne donne les en-têtes : <code>email,prenom,societe</code>.</p>
   </div>
 
   <div class="card">
     <h2 class="r">✍️ Message</h2>
     <label>Objet</label>
-    <input type="text" name="subject" required
+    <input type="text" name="subject" required value="{{ pf.subject or '' }}"
            placeholder="{prenom}, un bureau qui colle à {societe} ?">
 
     <div style="background:var(--bleu-l);border-left:4px solid var(--bleu);border-radius:var(--r-el);padding:12px 15px;margin:16px 0 4px;font-size:13px;line-height:1.6;">
@@ -42,7 +47,7 @@ a@societe.com, b@autre.fr, c@client.com"></textarea>
       placeholder="&lt;p&gt;Bonjour,&lt;/p&gt;
 &lt;p&gt;Je me permets de vous écrire au sujet de votre recherche de bureaux…&lt;/p&gt;
 [photo1]
-&lt;p&gt;&lt;a href=&quot;https://equation-sie.com&quot;&gt;Découvrir nos offres&lt;/a&gt;&lt;/p&gt;"></textarea>
+&lt;p&gt;&lt;a href=&quot;https://equation-sie.com&quot;&gt;Découvrir nos offres&lt;/a&gt;&lt;/p&gt;">{{ pf.body or '' }}</textarea>
   </div>
 
   <div class="card">
@@ -57,6 +62,10 @@ a@societe.com, b@autre.fr, c@client.com"></textarea>
         <label>Photos dans le message <span class="hint">tu peux les ajouter en plusieurs fois — elles s'additionnent</span></label>
         <input type="file" id="photo-input" name="inline" multiple accept=".png,.jpg,.jpeg,.gif,.webp">
         <div id="photo-list" style="margin-top:8px;"></div>
+        <label style="display:flex;align-items:center;gap:9px;font-weight:normal;margin:10px 0 0;cursor:pointer;font-size:13px;">
+          <input type="checkbox" name="center_photos" style="width:auto;"{% if pf.center %} checked{% endif %}>
+          <span>Centrer les photos (sinon alignées à gauche). Toutes les photos ont la même largeur.</span>
+        </label>
       </div>
     </div>
     <p class="small">Plafond {{ max_mb }} Mo / mail. Au-delà de ~25 Mo, beaucoup de boîtes rejettent le mail — pour du lourd, préfère un lien. Évite aussi le tout-image (spam) : garde du vrai texte.</p>
@@ -65,13 +74,13 @@ a@societe.com, b@autre.fr, c@client.com"></textarea>
   <div class="card">
     <h2>⏱️ Cadence &amp; envoi</h2>
     <label style="display:flex;align-items:center;gap:9px;font-weight:normal;margin:0 0 16px;cursor:pointer;">
-      <input type="checkbox" name="signature" checked style="width:auto;">
+      <input type="checkbox" name="signature" style="width:auto;"{% if pf.get('signature', True) %} checked{% endif %}>
       <span>Ajouter ma signature Équation en bas du mail</span>
     </label>
     <div class="row" style="align-items:flex-end">
       <div style="max-width:220px">
         <label>Délai entre envois <span class="hint">secondes (30–60 conseillé)</span></label>
-        <input type="number" name="delay" value="{{ default_delay }}" min="0" max="600">
+        <input type="number" name="delay" value="{{ pf.delay or default_delay }}" min="0" max="600">
       </div>
       <div style="text-align:right">
         <button class="btn sec" type="submit">Prévisualiser →</button>
