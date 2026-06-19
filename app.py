@@ -80,6 +80,7 @@ except ImportError:
 
 
 MAX_TOTAL_ATTACH_MB = float(os.environ.get("MAX_TOTAL_ATTACH_MB", "25"))
+COMPRESS_PDF_OVER_MB = float(os.environ.get("COMPRESS_PDF_OVER_MB", "4"))  # auto-compression au-delà
 DEFAULT_DELAY_S     = int(os.environ.get("DEFAULT_DELAY_S", "45"))
 OVH_HOURLY_LIMIT    = 200  # mails / heure / compte (doc OVH)
 
@@ -297,6 +298,57 @@ def inline_to_data(body: str, photos) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Compression PDF (ré-échantillonne les images). Best-effort, optionnelle.
+# --------------------------------------------------------------------------- #
+def compress_pdf(in_path, max_dim=1600, quality=72):
+    """Réduit le poids d'un PDF trop lourd en ré-échantillonnant ses images.
+    Retourne (chemin, nouvelle_taille) ; si échec/inutile -> (in_path, None)."""
+    try:
+        import fitz
+        from PIL import Image
+        import io as _io
+    except ImportError:
+        return in_path, None
+    try:
+        doc = fitz.open(in_path)
+        for page in doc:
+            for info in page.get_images(full=True):
+                xref = info[0]
+                try:
+                    pix = fitz.Pixmap(doc, xref)
+                    if pix.n >= 5:                       # CMYK / alpha -> RGB
+                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                    w, h = pix.width, pix.height
+                    mode = "RGB" if pix.n >= 3 else "L"
+                    img = Image.frombytes(mode, (w, h), pix.samples)
+                    scale = min(1.0, max_dim / max(w, h))
+                    if scale < 1.0:
+                        img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))),
+                                         Image.LANCZOS)
+                    buf = _io.BytesIO()
+                    img.convert("RGB").save(buf, "JPEG", quality=quality)
+                    doc.update_stream(xref, buf.getvalue())
+                    doc.xref_set_key(xref, "Filter", "/DCTDecode")
+                    doc.xref_set_key(xref, "Width", str(img.width))
+                    doc.xref_set_key(xref, "Height", str(img.height))
+                    doc.xref_set_key(xref, "BitsPerComponent", "8")
+                    doc.xref_set_key(xref, "ColorSpace", "/DeviceRGB")
+                    pix = None
+                except Exception:
+                    continue
+        out = in_path + ".min.pdf"
+        doc.save(out, garbage=4, deflate=True, clean=True)
+        doc.close()
+        if os.path.exists(out) and os.path.getsize(out) < os.path.getsize(in_path):
+            return out, os.path.getsize(out)
+        if os.path.exists(out):
+            os.remove(out)
+        return in_path, None
+    except Exception:
+        return in_path, None
+
+
+# --------------------------------------------------------------------------- #
 # Construction du message MIME
 # --------------------------------------------------------------------------- #
 def build_message(from_email, from_name, to_email, subject,
@@ -472,8 +524,17 @@ def preview():
             errors.append(f"Pièce jointe refusée (type {ext}) : {f.filename}"); continue
         fname = secure_filename(f.filename)
         path = os.path.join(tmpdir, "att_" + fname); f.save(path)
-        sz = os.path.getsize(path); total_bytes += sz
-        attachments.append({"path": path, "filename": fname, "size_kb": round(sz/1024)})
+        sz = os.path.getsize(path)
+        entry = {"path": path, "filename": fname}
+        # Compression auto des gros PDF (images ré-échantillonnées)
+        if ext == ".pdf" and sz > COMPRESS_PDF_OVER_MB * 1024 * 1024:
+            newpath, newsize = compress_pdf(path)
+            if newsize and newsize < sz:
+                entry["orig_kb"] = round(sz / 1024)
+                path = newpath; entry["path"] = newpath; sz = newsize
+        total_bytes += sz
+        entry["size_kb"] = round(sz / 1024)
+        attachments.append(entry)
 
     for f in request.files.getlist("inline"):
         if not f or not f.filename: continue
