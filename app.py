@@ -256,16 +256,21 @@ PHOTO_TAG = ('<img src="cid:{cid}" alt="{name}" '
 
 
 def embed_photos(body: str, inline_images) -> str:
-    """Place chaque photo là où un repère apparaît dans le corps :
-       [photo1], [photo2]… (ordre d'upload), ou [nomdufichier].
-       Sinon (aucun repère et pas de cid: manuel), la photo est ajoutée à la fin."""
+    """Place chaque photo là où un repère apparaît dans le corps. Repères tolérés
+    (espaces et majuscules ignorés) : [photo1], [photo 1], [Photo1], ou [nomdufichier].
+    Sinon (aucun repère, ni cid: manuel), la photo est ajoutée à la fin."""
     body = body or ""
     for i, img in enumerate(inline_images, start=1):
         tag = PHOTO_TAG.format(cid=img["cid"], name=img["filename"])
         base = os.path.splitext(img["filename"])[0]
-        for marker in (f"[photo{i}]", f"[{img['filename']}]", f"[{base}]"):
-            body = re.sub(re.escape(marker), lambda _m: tag, body, flags=re.IGNORECASE)
-    # Filet de sécurité : photos non placées (ni repère, ni cid: manuel) -> à la fin
+        patterns = [
+            r"\[\s*photo\s*" + str(i) + r"\s*\]",                 # [photo1] / [ photo 1 ]
+            r"\[\s*" + re.escape(base) + r"\s*\]",                # [nomdufichier]
+            r"\[\s*" + re.escape(img["filename"]) + r"\s*\]",     # [nomdufichier.png]
+        ]
+        for pat in patterns:
+            body = re.sub(pat, lambda _m: tag, body, flags=re.IGNORECASE)
+    # Filet de sécurité : photos non placées -> à la fin
     extra = "".join(
         PHOTO_TAG.format(cid=img["cid"], name=img["filename"])
         for img in inline_images
@@ -570,10 +575,27 @@ def preview():
     if want_sig and not signature_html:
         errors.append("Aucune signature configurée pour ton adresse — le mail partira sans signature.")
 
+    # Photos encodées UNE seule fois (réutilisées pour tous les aperçus) -> rapide
+    photo_data = {}
+    for img in inline_images:
+        try:
+            with open(img["path"], "rb") as fh:
+                b64 = base64.b64encode(fh.read()).decode()
+            mime = mimetypes.guess_type(img["filename"])[0] or "image/png"
+            photo_data[img["cid"]] = f"data:{mime};base64,{b64}"
+        except OSError:
+            pass
+
+    def render_preview(html):
+        for cid, uri in photo_data.items():
+            html = html.replace(f"cid:{cid}", uri)
+        return html
+
+    PREVIEW_LIMIT = 5
     previews = [{"email": r["email"], "subject": personalize(subject, r),
-                 "body": inline_to_data(assemble_body(body, r, inline_images, signature_html),
-                                        inline_images)}
-                for r in rows]
+                 "body": render_preview(assemble_body(body, r, inline_images, signature_html))}
+                for r in rows[:PREVIEW_LIMIT]]
+    more_count = max(0, len(rows) - PREVIEW_LIMIT)
 
     job_id = uuid.uuid4().hex
     with LOCK:
@@ -591,7 +613,7 @@ def preview():
     return render_template("preview.html", job_id=job_id, previews=previews,
                            attachments=attachments, inline_images=inline_images,
                            total_mb=round(total_mb, 2), delay=delay, est_min=est_min,
-                           warnings=errors, count=len(rows),
+                           warnings=errors, count=len(rows), more_count=more_count,
                            from_name=u["name"], from_email=u["email"])
 
 

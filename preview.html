@@ -38,4 +38,8 @@
   <div class="body">{{ p.body | safe }}</div>
 </div>
 {% endfor %}
+
+{% if more_count and more_count > 0 %}
+<p class="small" style="text-align:center;">+ {{ more_count }} autre(s) destinataire(s) — même mail, aperçu limité aux 5 premiers pour rester rapide.</p>
+{% endif %}
 {% endblock %}
