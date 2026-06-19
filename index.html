@@ -54,7 +54,7 @@ a@societe.com, b@autre.fr, c@client.com"></textarea>
                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp">
       </div>
       <div>
-        <label>Photos dans le message <span class="hint">place-les via <code>[photo1]</code>, <code>[photo2]</code>… dans le texte</span></label>
+        <label>Photos dans le message <span class="hint">tu peux les ajouter en plusieurs fois — elles s'additionnent</span></label>
         <input type="file" id="photo-input" name="inline" multiple accept=".png,.jpg,.jpeg,.gif,.webp">
         <div id="photo-list" style="margin-top:8px;"></div>
       </div>
@@ -86,15 +86,41 @@ a@societe.com, b@autre.fr, c@client.com"></textarea>
     var input = document.getElementById("photo-input");
     var list = document.getElementById("photo-list");
     if (!input || !list) return;
-    input.addEventListener("change", function () {
-      if (!input.files.length) { list.innerHTML = ""; return; }
-      var html = "";
-      for (var i = 0; i < input.files.length; i++) {
-        html += '<div style="font-size:12.5px;margin:3px 0;">'
-              + '<code>[photo' + (i + 1) + ']</code> &nbsp;'
-              + input.files[i].name + '</div>';
-      }
+    var store = [];   // source de vérité : toutes les photos ajoutées
+
+    function syncInput() {
+      try {
+        var dt = new DataTransfer();
+        store.forEach(function (f) { dt.items.add(f); });
+        input.files = dt.files;   // le formulaire enverra TOUTES les photos
+      } catch (e) { /* très vieux navigateur : l'affichage reste correct */ }
+    }
+    function render() {
+      if (!store.length) { list.innerHTML = ""; return; }
+      var html = '<div style="font-weight:bold;font-size:12.5px;margin-bottom:5px;color:var(--aubergine);">📷 Photos ajoutées (' + store.length + ') :</div>';
+      store.forEach(function (f, i) {
+        html += '<div style="font-size:12.5px;margin:4px 0;display:flex;gap:8px;align-items:center;">'
+              + '<code>[photo' + (i + 1) + ']</code>'
+              + '<span style="flex:1;">' + f.name + '</span>'
+              + '<a href="#" class="rm" data-i="' + i + '" style="color:var(--rouge);font-weight:bold;text-decoration:none;">&times; retirer</a>'
+              + '</div>';
+      });
       list.innerHTML = html;
+      Array.prototype.forEach.call(list.querySelectorAll(".rm"), function (a) {
+        a.addEventListener("click", function (e) {
+          e.preventDefault();
+          store.splice(parseInt(a.getAttribute("data-i"), 10), 1);
+          syncInput(); render();
+        });
+      });
+    }
+    input.addEventListener("change", function () {
+      Array.prototype.forEach.call(input.files, function (f) {
+        var dup = store.some(function (g) { return g.name === f.name && g.size === f.size; });
+        if (!dup) store.push(f);
+      });
+      syncInput();
+      render();
     });
   })();
 </script>
