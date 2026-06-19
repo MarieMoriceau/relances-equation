@@ -534,6 +534,49 @@ def run_job(job_id):
     delay   = job["delay"]
     recipients = job["recipients"]
 
+    # --- Copie "Envoyés" : UNE seule connexion IMAP réutilisée pour toute la
+    # série (fiable même pour plusieurs mails rapprochés ; reconnexion si coupée).
+    sent = {"M": None, "folders": None}
+    def _imap_ok():
+        if not SAVE_TO_SENT:
+            return False
+        if sent["M"] is not None:
+            try:
+                sent["M"].noop(); return True
+            except Exception:
+                sent["M"] = None
+        try:
+            M = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT, timeout=20)
+            M.login(s_email, s_pass)
+            sent["M"] = M
+            if sent["folders"] is None:
+                sent["folders"] = _sent_candidates(M) or ["Sent"]
+            return True
+        except Exception:
+            sent["M"] = None
+            return False
+    def _copy_sent(msg):
+        if not SAVE_TO_SENT:
+            return True, None
+        last = "connexion IMAP impossible"
+        for _ in range(2):                      # 1 essai + 1 reconnexion
+            if not _imap_ok():
+                continue
+            when = imaplib.Time2Internaldate(time.time())
+            raw = msg.as_bytes()
+            for folder in sent["folders"]:
+                try:
+                    typ, _r = sent["M"].append('"%s"' % folder, "\\Seen", when, raw)
+                    if typ == "OK":
+                        sent["folders"] = [folder]   # fige le dossier qui marche
+                        return True, None
+                    last = "réponse %s (%s)" % (typ, folder)
+                except Exception as e:
+                    last = "%s (%s)" % (e, folder)
+                    sent["M"] = None                 # force la reconnexion
+                    break
+        return False, last
+
     for idx, row in enumerate(recipients):
         if job.get("cancel"):
             job["status"] = "annulé"; break
@@ -550,7 +593,7 @@ def run_job(job_id):
                 server.send_message(msg)
             result["status"] = "OK"
             # Copie dans Envoyés (n'échoue jamais l'envoi lui-même)
-            copied, cerr = save_to_sent(s_email, s_pass, msg)
+            copied, cerr = _copy_sent(msg)
             result["copie"] = "OK" if copied else "KO"
             if not copied:
                 result["copie_err"] = cerr
@@ -569,6 +612,9 @@ def run_job(job_id):
 
     if job["status"] != "annulé":
         job["status"] = "terminé"
+    if sent["M"] is not None:               # ferme la connexion Envoyés
+        try: sent["M"].logout()
+        except Exception: pass
     job["sender_password"] = None  # on ne garde pas le mot de passe après usage
     tmp = job.get("tmpdir")
     if tmp and os.path.isdir(tmp):
@@ -721,11 +767,13 @@ def preview():
             "total": len(rows), "cancel": False,
         }
     est_min = round((len(rows)-1)*delay/60, 1) if len(rows) > 1 else 0
+    heavy_pdf = next((a for a in attachments
+                      if a["filename"].lower().endswith(".pdf") and a["size_kb"] > 12*1024), None)
     return render_template("preview.html", job_id=job_id, previews=previews,
                            attachments=attachments, inline_images=inline_images,
                            total_mb=round(total_mb, 2), delay=delay, est_min=est_min,
                            warnings=errors, count=len(rows), more_count=more_count,
-                           from_name=u["name"], from_email=u["email"])
+                           from_name=u["name"], from_email=u["email"], heavy_pdf=heavy_pdf)
 
 
 @app.route("/send", methods=["POST"])

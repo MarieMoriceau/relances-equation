@@ -21,6 +21,21 @@
 
   {% if warnings %}{% for w in warnings %}<div class="flash warn">⚠ {{ w }}</div>{% endfor %}{% endif %}
 
+  {% if heavy_pdf %}
+  <div style="background:#fff7e6;border-left:4px solid #d98a00;border-radius:10px;padding:13px 16px;margin:14px 0;font-size:13px;line-height:1.6;">
+    📄 <strong>« {{ heavy_pdf.filename }} » est lourde ({{ (heavy_pdf.size_kb/1024)|round(1) }} Mo).</strong>
+    Au-delà de ~25 Mo, beaucoup de messageries (Gmail, Outlook…) <strong>rejettent le mail</strong> et il n'arrive jamais.
+    Pour l'alléger sur ton Mac (en français) :
+    <ol style="margin:8px 0 0;padding-left:20px;">
+      <li>Ouvre le PDF dans <strong>Aperçu</strong>.</li>
+      <li>Menu <strong>Fichier → Exporter…</strong></li>
+      <li>Dans <strong>Filtre Quartz</strong>, choisis <strong>« Réduire la taille du fichier »</strong>.</li>
+      <li><strong>Enregistre</strong>, puis attache la version allégée ici.</li>
+    </ol>
+    <span style="color:#7a5b00;">Astuce : tu passes en général de plusieurs dizaines de Mo à 3-6 Mo, sans perte visible.</span>
+  </div>
+  {% endif %}
+
   <form method="post" action="{{ url_for('send') }}" style="margin-top:14px">
     <input type="hidden" name="job_id" value="{{ job_id }}">
     <a class="btn ghost" href="{{ url_for('index') }}?edit={{ job_id }}">← Modifier</a>
