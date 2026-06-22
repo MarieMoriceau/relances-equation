@@ -174,11 +174,11 @@ a@societe.com, b@autre.fr, c@client.com">{{ pf.recipients or '' }}</textarea>
     var safeTxt = esc(txt);
     var snippet;
     if (style === "button") {
-      snippet = '<a href="' + safeUrl + '" style="display:inline-block;background:#B90009;'
+      snippet = '<a href="' + safeUrl + '" target="_blank" rel="noopener" style="display:inline-block;background:#B90009;'
               + 'color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;'
               + 'font-weight:bold;font-family:Arial;font-size:15px;">' + safeTxt + '</a>';
     } else {
-      snippet = '<a href="' + safeUrl + '">' + safeTxt + '</a>';
+      snippet = '<a href="' + safeUrl + '" target="_blank" rel="noopener">' + safeTxt + '</a>';
     }
     var ta = document.querySelector('textarea[name="body"]');
     if (!ta) return;

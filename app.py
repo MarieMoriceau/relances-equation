@@ -24,6 +24,8 @@ import smtplib
 import imaplib
 import tempfile
 import threading
+import urllib.request
+import urllib.error
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -51,6 +53,11 @@ IMAP_HOST = os.environ.get("IMAP_HOST", SMTP_HOST)             # = SMTP_HOST par
 IMAP_PORT = int(os.environ.get("IMAP_PORT", "993"))
 SENT_FOLDER = os.environ.get("SENT_FOLDER", "")               # vide = détection auto
 REPLY_TO  = os.environ.get("REPLY_TO", "")                     # optionnel (global)
+
+# Journal des envois dans Notion (optionnel) : renseigne NOTION_TOKEN +
+# NOTION_DATABASE_ID dans Render pour activer. Sinon, ignoré silencieusement.
+NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "").strip()
+NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "6b7a962f02ef4207a0fdae7f244dd656").strip()
 SECRET_KEY = os.environ.get("SECRET_KEY", os.urandom(24).hex())
 
 # Liste blanche des expéditeurs autorisés (séparés par des virgules).
@@ -326,9 +333,24 @@ def embed_photos(body: str, inline_images, center=False) -> str:
     return body + extra
 
 
+def nl2br(text: str) -> str:
+    """Convertit les sauts de ligne tapés (touche Entrée) en vrais retours HTML,
+    pour que le texte s'affiche comme à l'écran. Ne casse pas les liens (inline)
+    ni le HTML déjà présent : on évite les doubles sauts autour des blocs."""
+    if not text:
+        return text
+    t = text.replace("\r\n", "\n").replace("\r", "\n")
+    t = t.replace("\n", "<br>\n")
+    # pas de <br> superflu juste après/avant un bloc HTML
+    t = re.sub(r"(</(?:p|div|ul|ol|li|h[1-6]|blockquote|table|tr)>)\s*<br>", r"\1", t, flags=re.I)
+    t = re.sub(r"<br>\s*(<(?:p|div|ul|ol|li|h[1-6]|blockquote|table|tr)[ >])", r"\1", t, flags=re.I)
+    return t
+
+
 def assemble_body(template: str, row: dict, photos, signature_html: str, center=False) -> str:
     """Corps final : texte personnalisé -> photos -> signature."""
     body = personalize(template, row)
+    body = nl2br(body)                       # touche Entrée = vrai retour à la ligne
     body = embed_photos(body, photos, center)
     if signature_html:
         body = body + "<br>" + signature_html
@@ -497,6 +519,39 @@ def save_to_sent(email, password, msg):
         return False, "IMAP %s:%s — %s" % (IMAP_HOST, IMAP_PORT, e)
     return False, last_err
 # --------------------------------------------------------------------------- #
+def log_to_notion(commercial, destinataire, statut, objet="", copie_ok=False, detail=""):
+    """Crée une ligne dans la base Notion (best-effort, ne bloque jamais l'envoi)."""
+    if not (NOTION_TOKEN and NOTION_DATABASE_ID):
+        return
+    props = {
+        "Destinataire": {"title": [{"text": {"content": (destinataire or "—")[:1900]}}]},
+        "Statut": {"select": {"name": statut}},
+        "Date d'envoi": {"date": {"start": datetime.now().isoformat(timespec="seconds")}},
+        "Copie Envoyés": {"checkbox": bool(copie_ok)},
+    }
+    if objet:
+        props["Objet"] = {"rich_text": [{"text": {"content": objet[:1900]}}]}
+    if detail:
+        props["Détail erreur"] = {"rich_text": [{"text": {"content": detail[:1900]}}]}
+    if commercial:
+        props["Commercial"] = {"select": {"name": commercial[:100]}}
+    payload = json.dumps({"parent": {"database_id": NOTION_DATABASE_ID},
+                          "properties": props}).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.notion.com/v1/pages", data=payload, method="POST",
+        headers={"Authorization": "Bearer " + NOTION_TOKEN,
+                 "Notion-Version": "2022-06-28",
+                 "Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(req, timeout=12)
+    except urllib.error.HTTPError as e:
+        try: detail_msg = e.read().decode("utf-8", "ignore")[:300]
+        except Exception: detail_msg = ""
+        print("[notion] échec HTTP %s : %s" % (e.code, detail_msg), flush=True)
+    except Exception as e:
+        print("[notion] échec : %s" % e, flush=True)
+
+
 def log_send(entry: dict):
     entry["ts"] = datetime.now().isoformat(timespec="seconds")
     with open(LOG_FILE, "a", encoding="utf-8") as fh:
@@ -601,6 +656,11 @@ def run_job(job_id):
             result["status"] = "ERREUR"; result["error"] = str(e)
 
         log_send(dict(result))
+        # Journal Notion (best-effort)
+        detail = result.get("error") or result.get("copie_err") or ""
+        log_to_notion(commercial=s_name, destinataire=to_email,
+                      statut=("Envoyé" if result["status"] == "OK" else "Erreur"),
+                      objet=subject, copie_ok=(result.get("copie") == "OK"), detail=detail)
         with LOCK:
             job["results"].append(result); job["done"] = idx + 1
             job["ok" if result["status"] == "OK" else "ko"] += 1
@@ -741,10 +801,20 @@ def preview():
                 continue
         photo_data[img["cid"]] = uri
 
+    def _links_new_tab(html):
+        # Dans l'aperçu, tout lien s'ouvre dans un nouvel onglet (on ne quitte
+        # pas l'outil en cliquant).
+        def add(m):
+            tag = m.group(0)
+            if re.search(r"\btarget\s*=", tag, re.I):
+                return tag
+            return tag[:-1] + ' target="_blank" rel="noopener">'
+        return re.sub(r"<a\b[^>]*>", add, html, flags=re.I)
+
     def render_preview(html):
         for cid, uri in photo_data.items():
             html = html.replace(f"cid:{cid}", uri)
-        return html
+        return _links_new_tab(html)
 
     PREVIEW_LIMIT = 5
     center = request.form.get("center_photos") == "on"
