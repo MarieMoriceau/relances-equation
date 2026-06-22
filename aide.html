@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Mode d'emploi · Relances ciblées{% endblock %}
+{% block content %}
+<style>
+  .guide h1{margin:0 0 4px}
+  .guide .lead{color:#5b5b66;margin:0 0 18px}
+  .step{display:flex;gap:14px;margin:0 0 14px}
+  .step .num{flex:0 0 auto;width:32px;height:32px;border-radius:50%;background:var(--aubergine);
+    color:#fff;font-weight:bold;display:flex;align-items:center;justify-content:center}
+  .step .b{flex:1}
+  .step h3{margin:2px 0 5px;color:var(--aubergine)}
+  .step p{margin:0 0 5px}
+  .step ul{margin:5px 0 0;padding-left:18px} .step li{margin:3px 0}
+  .guide code{background:#f4f3f6;border:1px solid #e3e0e8;border-radius:4px;padding:1px 5px;font-size:13px;color:var(--aubergine)}
+  .tag{color:var(--rouge);font-weight:bold}
+  .tips{background:#fff5f5;border-left:4px solid var(--rouge);border-radius:10px;padding:14px 18px;margin-top:8px}
+  .tips h2{margin:0 0 8px;color:var(--rouge);font-size:18px}
+  .tips ul{margin:0;padding-left:18px} .tips li{margin:5px 0}
+  .faq{margin-top:18px}
+  .faq details{border:1px solid #e6e3ec;border-radius:8px;padding:10px 14px;margin:8px 0}
+  .faq summary{cursor:pointer;font-weight:bold;color:var(--aubergine)}
+  .faq p{margin:8px 0 0}
+</style>
+
+<div class="card guide">
+  <h1>Mode d'emploi <span class="accent">Relances ciblées</span></h1>
+  <p class="lead">Envoyer une série de mails de prospection, depuis ta propre boîte, en quelques clics.</p>
+
+  <div class="step"><div class="num">1</div><div class="b">
+    <h3>Se connecter</h3>
+    <p>Saisis <strong>ton adresse et ton mot de passe OVH</strong> (les mêmes que ta boîte mail). Le mail partira de <strong>ta</strong> boîte. Ton mot de passe n'est jamais stocké.</p>
+  </div></div>
+
+  <div class="step"><div class="num">2</div><div class="b">
+    <h3>Indiquer les destinataires</h3>
+    <ul>
+      <li><strong>Liste simple</strong> : colle les adresses (une par ligne ou séparées par des virgules).</li>
+      <li><strong>Avec personnalisation</strong> : glisse un fichier <strong>Excel/CSV</strong> dans la zone prévue (ou clique pour le choisir). La 1ʳᵉ ligne doit contenir les en-têtes, dont une colonne <code>email</code> (+ <code>prenom</code>, <code>societe</code>…).</li>
+    </ul>
+  </div></div>
+
+  <div class="step"><div class="num">3</div><div class="b">
+    <h3>Écrire le message</h3>
+    <p><strong>Objet</strong> court et accrocheur, puis le <strong>corps</strong> du mail. Ta touche <strong>Entrée</strong> crée un vrai retour à la ligne.</p>
+    <p>Pour personnaliser, écris <code>{prenom}</code> ou <code>{societe}</code> : chacun reçoit sa version (ex. « Bonjour {prenom}, un bureau pour {societe} ? »).</p>
+  </div></div>
+
+  <div class="step"><div class="num">4</div><div class="b">
+    <h3>Ajouter un lien ou un bouton</h3>
+    <p>Dans le bloc <strong>🔗 Insérer un lien ou un bouton</strong> : colle l'adresse, tape le texte affiché, choisis « bouton » ou « lien », puis <strong>Insérer</strong>. Le lien s'ouvre dans un nouvel onglet. Aucun HTML à taper.</p>
+  </div></div>
+
+  <div class="step"><div class="num">5</div><div class="b">
+    <h3>Ajouter des photos &amp; pièces jointes</h3>
+    <ul>
+      <li><strong>Photos dans le message</strong> : ajoute-les (en plusieurs fois si besoin), puis écris <span class="tag">[photo1]</span>, <span class="tag">[photo2]</span>… là où elles doivent apparaître. Coche « Centrer les photos » si tu veux.</li>
+      <li><strong>Pièces jointes</strong> : au-delà de ~25 Mo, le mail est rejeté → allège le PDF (l'outil te montre comment) ou mets un lien.</li>
+    </ul>
+  </div></div>
+
+  <div class="step"><div class="num">6</div><div class="b">
+    <h3>Prévisualiser (et corriger)</h3>
+    <p>Clique <strong>« Prévisualiser »</strong> pour voir le mail tel que le prospect le recevra. Une erreur ? <strong>« ← Modifier »</strong> te ramène à ton texte intact (pense à re-sélectionner les photos).</p>
+  </div></div>
+
+  <div class="step"><div class="num">7</div><div class="b">
+    <h3>Envoyer la série</h3>
+    <p>Règle le <strong>délai entre envois</strong> (30–60 s conseillé), clique <strong>« Envoyer la série »</strong> et <strong>garde l'onglet ouvert</strong>. À la fin, une bannière verte confirme l'envoi, une copie va dans tes <strong>Envoyés</strong>, et une ligne s'ajoute au <strong>Journal</strong>.</p>
+  </div></div>
+
+  <div class="tips">
+    <h2>💡 Bon à savoir</h2>
+    <ul>
+      <li><strong>Limite OVH</strong> : 200 mails/heure — large pour des séries de 10 à 50.</li>
+      <li><strong>Gros document</strong> : préfère un lien (bouton) à un PDF lourd ; pour un PDF, allège-le d'abord.</li>
+      <li><strong>Garde du vrai texte</strong> (pas un mail tout en image) : meilleure délivrabilité.</li>
+      <li><strong>« Session expirée »</strong> (rare) : reconnecte-toi, rien n'est perdu.</li>
+    </ul>
+  </div>
+
+  <div class="faq">
+    <details><summary>Le fichier Excel : quel format exactement ?</summary>
+      <p>1ʳᵉ ligne = en-têtes, avec au minimum une colonne <code>email</code>. Ajoute <code>prenom</code>, <code>societe</code> (en minuscules, sans accent) pour la personnalisation. Un modèle prêt à remplir t'a été fourni.</p></details>
+    <details><summary>Mes retours à la ligne ne s'affichaient pas ?</summary>
+      <p>C'est corrigé : ta touche Entrée crée désormais un vrai retour à la ligne dans le mail reçu.</p></details>
+    <details><summary>Où voir ce que j'ai envoyé ?</summary>
+      <p>Onglet <strong>Journal</strong> (et, si activé, la base Notion « Journal des relances » : qui a envoyé, à qui, statut, date).</p></details>
+    <details><summary>Le mail n'arrive pas chez le destinataire ?</summary>
+      <p>Vérifie le poids des pièces jointes (≤ 25 Mo) et demande au destinataire de regarder ses indésirables. Un mail tout en image ou trop lourd part plus facilement en spam.</p></details>
+  </div>
+</div>
+{% endblock %}

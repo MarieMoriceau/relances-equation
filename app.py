@@ -710,6 +710,12 @@ def index():
                            from_name=u["name"], from_email=u["email"], pf=pf)
 
 
+@app.route("/aide")
+@login_required
+def aide():
+    return render_template("aide.html")
+
+
 @app.route("/preview", methods=["POST"])
 @login_required
 def preview():
