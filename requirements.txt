@@ -2,3 +2,4 @@ Flask==3.0.3
 gunicorn==22.0.0
 PyMuPDF==1.27.2
 Pillow==10.4.0
+openpyxl==3.1.5

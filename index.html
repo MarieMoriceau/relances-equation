@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Composer · Relances Equation{% endblock %}
 {% block content %}
+<a href="{{ url_for('aide') }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;
+   background:var(--aubergine);color:#fff;text-decoration:none;border-radius:12px;padding:14px 18px;margin-bottom:16px;">
+  <span style="font-weight:bold;font-size:15px;">🆘 Première fois&nbsp;? Lis le mode d'emploi pas à pas</span>
+  <span style="background:var(--rouge);padding:7px 14px;border-radius:8px;font-weight:bold;white-space:nowrap;">Ouvrir l'aide →</span>
+</a>
 <form method="post" action="{{ url_for('preview') }}" enctype="multipart/form-data">
 
   <div class="card">
@@ -36,6 +41,7 @@ a@societe.com, b@autre.fr, c@client.com">{{ pf.recipients or '' }}</textarea>
     </div>
 
     <p class="small">Pour <strong>personnaliser</strong> (<code>{prenom}</code>, <code>{societe}</code>…), colle un tableau Excel (ou dépose le fichier) dont la 1re ligne donne les en-têtes : <code>email,prenom,societe</code>.</p>
+    <a href="{{ url_for('modele') }}" class="btn ghost" style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;">📄 Télécharger le modèle Excel</a>
   </div>
 
   <div class="card">

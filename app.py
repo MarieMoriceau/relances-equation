@@ -716,6 +716,51 @@ def aide():
     return render_template("aide.html")
 
 
+@app.route("/modele")
+@login_required
+def modele():
+    """Génère et renvoie le modèle Excel des destinataires."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from io import BytesIO
+    wb = Workbook(); ws = wb.active; ws.title = "Destinataires"
+    ws.append(["email", "prenom", "societe"])
+    for r in [["jean.dupont@entreprise.fr", "Jean", "Entreprise SA"],
+              ["s.martin@societe-exemple.com", "Sophie", "Société Martin"],
+              ["contact@globex.fr", "Camille", "Globex"]]:
+        ws.append(r)
+    thin = Side(style="thin", color="DDDDDD"); border = Border(thin, thin, thin, thin)
+    hf = Font(name="Arial", bold=True, color="FFFFFF"); hfill = PatternFill("solid", fgColor="3C214B")
+    for c in range(1, 4):
+        cell = ws.cell(row=1, column=c)
+        cell.font = hf; cell.fill = hfill
+        cell.alignment = Alignment(horizontal="left", vertical="center"); cell.border = border
+    ws.row_dimensions[1].height = 22
+    for rr in range(2, 5):
+        for c in range(1, 4):
+            cell = ws.cell(row=rr, column=c)
+            cell.font = Font(name="Arial", italic=True, color="888888"); cell.border = border
+    ws.column_dimensions["A"].width = 34; ws.column_dimensions["B"].width = 18; ws.column_dimensions["C"].width = 26
+    ws.freeze_panes = "A2"
+    ws2 = wb.create_sheet("Lisez-moi")
+    notes = ["Modèle — Liste de destinataires", "",
+             "1. Remplace les lignes d'exemple (en gris) par tes vrais destinataires.",
+             "2. Garde la 1re ligne d'en-têtes : email, prenom, societe.",
+             "3. La colonne « email » est obligatoire ; « prenom » et « societe » sont optionnelles.",
+             "4. Dans l'outil, glisse ce fichier dans la zone Destinataires (ou clique pour le choisir).",
+             "",
+             "Personnalisation : écris {prenom} ou {societe} dans ton mail,",
+             "et chacun recevra sa version. Garde des en-têtes en minuscules, sans accent."]
+    for i, t in enumerate(notes, start=1):
+        cell = ws2.cell(row=i, column=1, value=t)
+        cell.font = (Font(name="Arial", bold=True, size=14, color="3C214B") if i == 1
+                     else Font(name="Arial"))
+    ws2.column_dimensions["A"].width = 90
+    buf = BytesIO(); wb.save(buf); buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name="Modele-destinataires.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
 @app.route("/preview", methods=["POST"])
 @login_required
 def preview():

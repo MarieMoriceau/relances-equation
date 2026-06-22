@@ -122,7 +122,7 @@
   <nav>
     <span style="opacity:.7;font-size:13px">👤 {{ current_user.name }}</span>
     <a href="{{ url_for('index') }}">Composer</a>
-    <a href="{{ url_for('aide') }}">Aide</a>
+    <a href="{{ url_for('aide') }}" style="background:var(--rouge);color:#fff;padding:5px 12px;border-radius:6px;border-bottom:none;font-weight:bold;">❓ Aide</a>
     <a href="{{ url_for('journal') }}">Journal</a>
     <a href="{{ url_for('logout') }}">Quitter</a>
   </nav>
