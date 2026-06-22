@@ -20,13 +20,22 @@
   <div class="card">
     <h2>👥 Destinataires</h2>
     <label>Liste collée <span class="hint">Une adresse par ligne, ou séparées par des virgules.</span></label>
-    <textarea name="recipients" rows="7" required
+    <textarea name="recipients" id="recipients" rows="7" required
       placeholder="lbastian@equation-sie.com
 mmoriceau@equation-sie.com
 
 — ou —
 a@societe.com, b@autre.fr, c@client.com">{{ pf.recipients or '' }}</textarea>
-    <p class="small">Pour <strong>personnaliser</strong> (<code>{prenom}</code>, <code>{societe}</code>…), colle plutôt un tableau Excel dont la 1re ligne donne les en-têtes : <code>email,prenom,societe</code>.</p>
+
+    <div id="dropzone" style="margin-top:8px;border:2px dashed #c9c2d4;border-radius:8px;
+         padding:12px 14px;text-align:center;font-size:13px;color:var(--gris,#5b5b66);cursor:pointer;">
+      📄 <strong>Glisse ici un fichier Excel ou CSV</strong>, ou <span style="color:var(--rouge);text-decoration:underline;">clique pour le choisir</span>.
+      <div class="small" style="margin-top:3px;">La 1ʳᵉ ligne doit contenir les en-têtes (dont une colonne <code>email</code>). Les colonnes deviennent tes variables.</div>
+      <input type="file" id="file-recipients" accept=".xlsx,.xls,.csv,.txt" style="display:none;">
+      <div id="dropzone-status" class="small" style="margin-top:5px;color:var(--aubergine);font-weight:bold;"></div>
+    </div>
+
+    <p class="small">Pour <strong>personnaliser</strong> (<code>{prenom}</code>, <code>{societe}</code>…), colle un tableau Excel (ou dépose le fichier) dont la 1re ligne donne les en-têtes : <code>email,prenom,societe</code>.</p>
   </div>
 
   <div class="card">
@@ -106,6 +115,7 @@ a@societe.com, b@autre.fr, c@client.com">{{ pf.recipients or '' }}</textarea>
   </div>
 </form>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
   (function () {
     var input = document.getElementById("photo-input");
@@ -182,5 +192,79 @@ a@societe.com, b@autre.fr, c@client.com">{{ pf.recipients or '' }}</textarea>
     }
     urlEl.value = ""; txtEl.value = "";
   }
+
+  // Glisser-déposer / choisir un fichier Excel ou CSV pour remplir les destinataires
+  (function () {
+    var dz = document.getElementById("dropzone");
+    var fi = document.getElementById("file-recipients");
+    var ta = document.getElementById("recipients");
+    var status = document.getElementById("dropzone-status");
+    if (!dz || !fi || !ta) return;
+
+    function setStatus(msg, ok) {
+      status.textContent = msg;
+      status.style.color = (ok === false) ? "#B90009" : "var(--aubergine)";
+    }
+    function fillFromText(text, name) {
+      text = (text || "").replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+      if (!text) { setStatus("Fichier vide ou illisible.", false); return; }
+      ta.value = text;
+      var n = text.split("\n").filter(function (l) { return l.trim(); }).length;
+      setStatus("✓ « " + name + " » chargé (" + (n > 0 ? n - 1 : 0) + " destinataires + en-têtes). Vérifie au-dessus.", true);
+    }
+    function handleFile(file) {
+      if (!file) return;
+      var ext = (file.name.split(".").pop() || "").toLowerCase();
+      setStatus("Lecture de « " + file.name + " »…");
+      var r = new FileReader();
+      if (ext === "csv" || ext === "txt") {
+        r.onload = function () { fillFromText(r.result, file.name); };
+        r.onerror = function () { setStatus("Impossible de lire le fichier.", false); };
+        r.readAsText(file);
+        return;
+      }
+      if (typeof XLSX === "undefined") {
+        setStatus("Lecture Excel indisponible ici — ouvre le fichier et copie-colle les cellules.", false);
+        return;
+      }
+      r.onload = function (e) {
+        try {
+          var wb = XLSX.read(e.target.result, { type: "array" });
+          var ws = wb.Sheets[wb.SheetNames[0]];
+          var tsv = XLSX.utils.sheet_to_csv(ws, { FS: "\t", blankrows: false });
+          fillFromText(tsv, file.name);
+        } catch (err) {
+          setStatus("Fichier Excel illisible — essaie le copier-coller.", false);
+        }
+      };
+      r.onerror = function () { setStatus("Impossible de lire le fichier.", false); };
+      r.readAsArrayBuffer(file);
+    }
+
+    dz.addEventListener("click", function () { fi.click(); });
+    fi.addEventListener("change", function () { if (fi.files[0]) handleFile(fi.files[0]); });
+    function wire(el, visual) {
+      ["dragenter", "dragover"].forEach(function (ev) {
+        el.addEventListener(ev, function (e) {
+          e.preventDefault(); e.stopPropagation();
+          if (visual) { dz.style.borderColor = "#B90009"; dz.style.background = "#fff5f5"; }
+        });
+      });
+      ["dragleave", "drop"].forEach(function (ev) {
+        el.addEventListener(ev, function (e) {
+          e.preventDefault(); e.stopPropagation();
+          if (visual) { dz.style.borderColor = "#c9c2d4"; dz.style.background = ""; }
+        });
+      });
+      el.addEventListener("drop", function (e) {
+        var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) handleFile(f);
+      });
+    }
+    wire(dz, true); wire(ta, true);
+    // évite que le navigateur ouvre le fichier si on le lâche à côté
+    window.addEventListener("dragover", function (e) { e.preventDefault(); });
+    window.addEventListener("drop", function (e) { e.preventDefault(); });
+  })();
 </script>
 {% endblock %}
