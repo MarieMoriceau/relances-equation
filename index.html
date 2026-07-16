@@ -57,27 +57,17 @@ a@societe.com, b@autre.fr, c@client.com">{{ pf.recipients or '' }}</textarea>
       Plusieurs photos ? <code>[photo1]</code>, <code>[photo2]</code>, <code>[photo3]</code>… dans l'ordre où tu les ajoutes. Sans repère, elles se mettent à la fin.
     </div>
 
-    <label>Corps du mail (HTML) <span class="hint">Liens cliquables : <code>&lt;a href="..."&gt;texte&lt;/a&gt;</code></span></label>
+    <label>Corps du mail (HTML) <span class="hint">Pour un lien : sélectionne le texte puis « 🔗 Créer un lien » ci-dessous.</span></label>
     <textarea name="body" rows="12" required
       placeholder="&lt;p&gt;Bonjour,&lt;/p&gt;
 &lt;p&gt;Je me permets de vous écrire au sujet de votre recherche de bureaux…&lt;/p&gt;
 [photo1]
 &lt;p&gt;&lt;a href=&quot;https://equation-sie.com&quot;&gt;Découvrir nos offres&lt;/a&gt;&lt;/p&gt;">{{ pf.body or '' }}</textarea>
 
-    <div style="background:var(--gris-clair, #f4f3f6);border-radius:8px;padding:12px 14px;margin-top:10px;">
-      <div style="font-weight:bold;font-size:13px;margin-bottom:8px;color:var(--aubergine);">🔗 Insérer un lien ou un bouton</div>
-      <div class="row" style="gap:10px;">
-        <div style="flex:1;"><input type="text" id="lk-url" placeholder="https://… (adresse du lien)"></div>
-        <div style="flex:1;"><input type="text" id="lk-text" placeholder="Texte affiché (ex. Voir le livret)"></div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;">
-        <select id="lk-style" style="width:auto;">
-          <option value="button">Bouton rouge Équation</option>
-          <option value="link">Lien simple (texte souligné)</option>
-        </select>
-        <button type="button" class="btn ghost" onclick="insertLink()">Insérer dans le mail ↓</button>
-      </div>
-      <p class="small" style="margin:6px 0 0;">Place ton curseur dans le corps du mail à l'endroit voulu, puis clique « Insérer ». Sinon, le lien s'ajoute à la fin.</p>
+    <div style="margin-top:8px;">
+      <button type="button" class="btn ghost" style="padding:6px 13px;font-size:13px;"
+              onclick="makeLink(document.querySelector('textarea[name=body]'))">🔗 Créer un lien</button>
+      <span class="hint" style="margin-left:6px;">Sélectionne le texte à rendre cliquable dans le mail, clique, puis colle l'adresse. Résultat : texte souligné aubergine (pas de bouton rouge).</span>
     </div>
   </div>
 
@@ -108,7 +98,11 @@ a@societe.com, b@autre.fr, c@client.com">{{ pf.recipients or '' }}</textarea>
       <input type="checkbox" name="signature" style="width:auto;"{% if pf.get('signature', True) %} checked{% endif %}>
       <span>Ajouter ma signature Équation en bas du mail</span>
     </label>
-    <div class="row" style="align-items:flex-end">
+    <label>🕒 Programmer l'envoi <span class="hint">optionnel — laisse vide pour envoyer dès validation</span></label>
+    <input type="datetime-local" name="start_at" value="{{ pf.start_at or '' }}" style="max-width:280px">
+    <span class="hint">L'envoi partira automatiquement à cette date et heure (heure de Paris). Garde le service actif d'ici là ; en cas de redémarrage entre-temps, il faudra relancer.</span>
+
+    <div class="row" style="align-items:flex-end;margin-top:14px">
       <div style="max-width:220px">
         <label>Délai entre envois <span class="hint">secondes (30–60 conseillé)</span></label>
         <input type="number" name="delay" value="{{ pf.delay or default_delay }}" min="0" max="600">
@@ -165,38 +159,27 @@ a@societe.com, b@autre.fr, c@client.com">{{ pf.recipients or '' }}</textarea>
     });
   })();
 
-  // Insère un lien ou un bouton dans le corps du mail (au curseur)
-  function insertLink() {
-    var urlEl = document.getElementById("lk-url");
-    var txtEl = document.getElementById("lk-text");
-    var url = (urlEl.value || "").trim();
-    var txt = (txtEl.value || "").trim() || "Voir le document";
-    var style = document.getElementById("lk-style").value;
-    if (!url) { alert("Colle d'abord l'adresse (URL) du lien."); urlEl.focus(); return; }
-    if (!/^https?:\/\//i.test(url)) { url = "https://" + url; }
-    // échappements simples pour ne pas casser le HTML
-    var esc = function (s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
-    var safeUrl = url.replace(/"/g, "%22");
-    var safeTxt = esc(txt);
-    var snippet;
-    if (style === "button") {
-      snippet = '<a href="' + safeUrl + '" target="_blank" rel="noopener" style="display:inline-block;background:#B90009;'
-              + 'color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;'
-              + 'font-weight:bold;font-family:Arial;font-size:15px;">' + safeTxt + '</a>';
-    } else {
-      snippet = '<a href="' + safeUrl + '" target="_blank" rel="noopener">' + safeTxt + '</a>';
-    }
-    var ta = document.querySelector('textarea[name="body"]');
+  // Sélectionne du texte dans le corps -> le transforme en lien souligné (aubergine)
+  function makeLink(ta) {
     if (!ta) return;
     var start = ta.selectionStart, end = ta.selectionEnd;
+    var sel = (typeof start === "number") ? ta.value.slice(start, end) : "";
+    var url = prompt("Colle l'adresse du lien (https://…) :", "https://");
+    if (!url) return;
+    url = url.trim();
+    if (!/^https?:\/\//i.test(url)) { url = "https://" + url; }
+    var esc = function (s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+    var text = sel || prompt("Texte affiché du lien :", "cliquez ici") || url;
+    var safeUrl = url.replace(/"/g, "%22");
+    var snippet = '<a href="' + safeUrl + '" target="_blank" rel="noopener" '
+                + 'style="color:#4A1E5C;text-decoration:underline;">' + esc(text) + '</a>';
     if (typeof start === "number") {
       ta.value = ta.value.slice(0, start) + snippet + ta.value.slice(end);
       var pos = start + snippet.length;
       ta.focus(); try { ta.setSelectionRange(pos, pos); } catch (e) {}
     } else {
-      ta.value += (ta.value ? "\n" : "") + snippet;   // repli : à la fin
+      ta.value += (ta.value ? "\n" : "") + snippet;
     }
-    urlEl.value = ""; txtEl.value = "";
   }
 
   // Glisser-déposer / choisir un fichier Excel ou CSV pour remplir les destinataires

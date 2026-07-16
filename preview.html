@@ -8,7 +8,9 @@
     <span class="badge">⏱️ délai {{ delay }} s</span>
     <span class="badge">≈ {{ est_min }} min</span>
     <span class="badge r">📎 {{ total_mb }} Mo</span>
+    {% if start_at %}<span class="badge" style="background:#eaf6ee;color:#0f5d38;border-color:#bfe6cd;">🕒 programmé {{ start_at }}</span>{% endif %}
   </p>
+  {% if start_at %}<div class="flash" style="background:#eaf6ee;border-left:4px solid #1c7d4d;color:#0f5d38;">🕒 <strong>Envoi programmé</strong> pour le <strong>{{ start_at }}</strong> (heure de Paris). Clique « Programmer l'envoi » : l'outil patientera puis enverra tout seul. <strong>Garde la session active</strong> — en cas de redémarrage du service d'ici là, il faudra relancer.</div>{% endif %}
 
   {% if attachments or inline_images %}
   <p class="small">
@@ -40,8 +42,8 @@
     <input type="hidden" name="job_id" value="{{ job_id }}">
     <a class="btn ghost" href="{{ url_for('index') }}?edit={{ job_id }}">← Modifier</a>
     <button class="btn" type="submit"
-            onclick="return confirm('Lancer l\'envoi à {{ count }} destinataires ?')">
-      🚀 Envoyer la série
+            onclick="return confirm('{% if start_at %}Programmer l\'envoi du {{ start_at }} vers {{ count }} destinataires ?{% else %}Lancer l\'envoi à {{ count }} destinataires ?{% endif %}')">
+      {% if start_at %}🕒 Programmer l'envoi{% else %}🚀 Envoyer la série{% endif %}
     </button>
   </form>
   <p class="small" style="margin-top:10px">Les photos s'affichent ci-dessous telles qu'elles apparaîtront dans le mail. Les pièces jointes sont listées plus haut.</p>

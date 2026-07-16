@@ -41,6 +41,38 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
+try:
+    from zoneinfo import ZoneInfo
+    _PARIS = ZoneInfo("Europe/Paris")
+except Exception:
+    _PARIS = None
+
+
+def _now_paris_str():
+    """Heure de Paris au format 'YYYY-MM-DD HH:MM:SS' (indépendant du TZ serveur)."""
+    now = datetime.now(_PARIS) if _PARIS else datetime.now()
+    return now.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _parse_start_at(raw):
+    """Champ datetime-local -> 'YYYY-MM-DD HH:MM:SS' (heure de Paris) si dans le futur,
+    sinon '' (= envoyer maintenant)."""
+    raw = (raw or "").strip().replace("T", " ")
+    if not raw:
+        return ""
+    dt = None
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            dt = datetime.strptime(raw, fmt)
+            break
+        except ValueError:
+            dt = None
+    if not dt:
+        return ""
+    s = dt.strftime("%Y-%m-%d %H:%M:%S")
+    return s if s > _now_paris_str() else ""
+
+
 # --------------------------------------------------------------------------- #
 # Configuration (variables d'environnement)
 # --------------------------------------------------------------------------- #
@@ -565,6 +597,16 @@ def run_job(job_id):
     with LOCK:
         job = JOBS[job_id]
 
+    # --- Envoi PROGRAMMÉ : on patiente jusqu'à la date/heure choisie (annulable) ---
+    start_at = job.get("start_at") or ""
+    if start_at:
+        job["status"] = "programmé"
+        while not job.get("cancel") and _now_paris_str() < start_at:
+            time.sleep(15)
+        if job.get("cancel"):
+            job["status"] = "annulé"
+            return
+
     # Compression des gros PDF ici (en tâche de fond, ne bloque pas l'aperçu)
     if any(a.get("to_compress") for a in job["attachments"]):
         job["status"] = "préparation"
@@ -704,6 +746,7 @@ def index():
                 "signature": job.get("want_sig", True),
                 "center": job.get("center", False),
                 "had_files": bool(job.get("attachments") or job.get("inline_images")),
+                "start_at": (job.get("start_at") or "")[:16].replace(" ", "T"),
             }
     return render_template("index.html", default_delay=DEFAULT_DELAY_S,
                            max_mb=MAX_TOTAL_ATTACH_MB, ovh_limit=OVH_HOURLY_LIMIT,
@@ -768,6 +811,7 @@ def preview():
     subject = request.form.get("subject", "").strip()
     body = request.form.get("body", "").strip()
     delay = max(0, int(request.form.get("delay") or DEFAULT_DELAY_S))
+    start_at = _parse_start_at(request.form.get("start_at", ""))
     recipients_raw = request.form.get("recipients", "")
     rows, errors = parse_recipients(recipients_raw)
     if not subject: errors.append("Objet manquant.")
@@ -883,7 +927,7 @@ def preview():
             "signature_html": signature_html, "center": center,
             "recipients_raw": recipients_raw, "want_sig": want_sig,
             "sender_email": u["email"], "sender_password": None,
-            "sender_name": u["name"],
+            "sender_name": u["name"], "start_at": start_at,
             "results": [], "done": 0, "ok": 0, "ko": 0,
             "total": len(rows), "cancel": False,
         }
@@ -894,6 +938,7 @@ def preview():
                            attachments=attachments, inline_images=inline_images,
                            total_mb=round(total_mb, 2), delay=delay, est_min=est_min,
                            warnings=errors, count=len(rows), more_count=more_count,
+                           start_at=start_at,
                            from_name=u["name"], from_email=u["email"], heavy_pdf=heavy_pdf)
 
 
